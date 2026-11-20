@@ -200,6 +200,8 @@ fn every_recipe_applies_and_undoes_exactly_on_real_windows() {
             r.id
         );
         summary(&format!("| `{}` | {result} |", r.id));
+        // A GitHub annotation: visible on the run page even without signing in.
+        println!("::notice title=Real recipe {}::{result}", r.id);
     }
     // Every registry-only recipe must have gone through the whole cycle.
     let registry_only = recipes

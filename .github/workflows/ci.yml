@@ -73,6 +73,8 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          # Errors as annotations: they show on the run page even without signing in.
+          function Fail([string]$message) { Write-Host "::error title=Interruption test::$message"; exit 1 }
           $env:PCO_DATA_DIR = Join-Path $env:RUNNER_TEMP 'pco-interrupt'
           $snaps = Join-Path $env:RUNNER_TEMP 'snaps'
           $key = 'HKCU\Software\Microsoft\GameBar'
@@ -86,22 +88,26 @@ jobs:
           reg.exe add $key /v AutoGameModeEnabled /t REG_DWORD /d 0 /f | Out-Null
 
           ./scripts/vm-snapshot.ps1 -Out "$snaps\before"
+          if ($LASTEXITCODE -ne 0) { Fail "snapshot failed: $LASTEXITCODE" }
 
           # Stop abruptly right after the first change, like a crash.
           $env:PCO_TEST_STOP_AFTER_CHANGES = '1'
-          & $pco --lang en apply gaming.game-mode-on gaming.game-dvr-off privacy.advertising-id-off
-          if ($LASTEXITCODE -ne 99) { throw "expected the deliberate stop (99), got $LASTEXITCODE" }
+          $applyOut = (& $pco --lang en apply gaming.game-mode-on gaming.game-dvr-off privacy.advertising-id-off 2>&1) -join ' | '
+          $applyCode = $LASTEXITCODE
           Remove-Item Env:PCO_TEST_STOP_AFTER_CHANGES
+          if ($applyCode -ne 99) { Fail "expected the deliberate stop (99), got $applyCode. Output: $applyOut" }
 
           # The next start must undo it and say so.
-          $out = (& $pco --lang en status) -join "`n"
+          $out = (& $pco --lang en status 2>&1) -join ' | '
+          $statusCode = $LASTEXITCODE
           Write-Host $out
-          if ($LASTEXITCODE -ne 0) { throw "pco status failed: $LASTEXITCODE" }
+          if ($statusCode -ne 0) { Fail "pco status failed ($statusCode). Output: $out" }
           if ($out -notmatch 'was interrupted\. I undid it automatically: 1 changes restored') {
-            throw 'the recovery message is missing'
+            Fail "the recovery message is missing. Output: $out"
           }
-          ./scripts/vm-snapshot.ps1 -Out "$snaps\after" -CompareWith "$snaps\before"
-          if ($LASTEXITCODE -ne 0) { throw 'the registry is not exactly as before' }
+          $cmp = (./scripts/vm-snapshot.ps1 -Out "$snaps\after" -CompareWith "$snaps\before" 6>&1) -join ' | '
+          if ($LASTEXITCODE -ne 0) { Fail "the registry is not exactly as before: $cmp" }
+          Write-Host "::notice title=Interruption test::stopped after 1 change; the next start undid it; registry identical"
 
           # Put the runner's own value back.
           if ($hadValue) {

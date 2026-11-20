@@ -37,6 +37,10 @@ foreach ($key in $keys) {
 }
 Write-Host "Saved $($keys.Count) keys to $Out"
 
+# Exit codes: 0 = saved (and identical), 1 = different, 2 = cannot compare.
+# Always explicit: otherwise the code of the last `reg.exe` call (1 for an absent key) leaks out.
+if (-not $CompareWith) { exit 0 }
+
 if ($CompareWith) {
     $different = 0
     for ($n = 1; $n -le $keys.Count; $n++) {
@@ -63,6 +67,7 @@ if ($CompareWith) {
     Write-Host ''
     if ($different -eq 0) {
         Write-Host 'IDENTICAL: every key is exactly as before.' -ForegroundColor Green
+        exit 0
     } else {
         Write-Host "$different key(s) differ (see above)." -ForegroundColor Red
         exit 1
