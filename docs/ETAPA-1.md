@@ -8,10 +8,10 @@ Asta deblochează și rețetele care depind de tipul PC-ului (desktop/laptop), b
 
 ## Sarcini
 
-- [ ] **1.1 Modelul datelor**: o „fotografie” a PC-ului (`HwInfo`): Windows, procesor, memorie, plăci video,
+- [x] **1.1 Modelul datelor**: o „fotografie” a PC-ului (`HwInfo`): Windows, procesor, memorie, plăci video,
   monitoare, discuri, alimentare, securitate, programe instalate, jocuri. Se poate salva ca JSON
   (pentru teste și, mai târziu, pentru exportul de loguri anonimizat). Fără nume de utilizator/PC.
-- [ ] **1.2 Detectarea reală (Windows, doar citire)**, în spatele unui trait, ca în Etapa 0:
+- [x] **1.2 Detectarea reală (Windows, doar citire)**, în spatele unui trait, ca în Etapa 0:
   - **Windows:** build, ediție, PC administrat de organizație (domeniu / Intune).
   - **Procesor:** nume, nuclee, fire.
   - **Memorie:** fiecare modul — capacitate, viteza nominală vs. viteza la care rulează, slot/canal.
@@ -25,7 +25,7 @@ Asta deblochează și rețetele care depind de tipul PC-ului (desktop/laptop), b
   - **Programe:** alte optimizatoare instalate (conflict), aplicații cu overlay (Discord, Steam, NVIDIA, Xbox).
   - **Jocuri:** cele 6 jocuri de la lansare, din Steam, Epic, Riot și EA app — unde sunt instalate și ce
     preferință de placă video au în Windows.
-- [ ] **1.3 Verificările** (funcții pure peste `HwInfo`, testabile pe orice sistem). Fiecare rezultat are:
+- [x] **1.3 Verificările** (funcții pure peste `HwInfo`, testabile pe orice sistem). Fiecare rezultat are:
   gravitate (problemă / atenție / info / OK), de ce contează, cum se rezolvă, rețeta potrivită dacă există.
   | Verificare | Problemă când |
   | --- | --- |
@@ -45,15 +45,15 @@ Asta deblochează și rețetele care depind de tipul PC-ului (desktop/laptop), b
   | Alte optimizatoare | instalate (pot da conflict) |
   | Overlay-uri | listate, cu cum se opresc — informativ |
   | PC administrat | domeniu / Intune — unele setări pot fi suprascrise |
-- [ ] **1.4 Comanda `pco health`** (RO/EN): întâi hardware-ul pe scurt, apoi rezultatele, cele mai grave primele.
+- [x] **1.4 Comanda `pco health`** (RO/EN): întâi hardware-ul pe scurt, apoi rezultatele, cele mai grave primele.
   `--json` pentru export. Funcționează fără drepturi de administrator (ce cere admin apare „necunoscut”).
-- [ ] **1.5 Desktop/laptop în gărzi**: tipul detectat ajunge la rețete (`platform.form_factor`).
-- [ ] **1.6 Teste**:
+- [x] **1.5 Desktop/laptop în gărzi**: tipul detectat ajunge la rețete (`platform.form_factor`).
+- [x] **1.6 Teste**:
   - verificările: pe „fotografii” de test (laptopul proprietarului — grafică Intel integrată; desktop gaming
     NVIDIA; laptop cu două plăci, pe baterie; runner-ul CI), pentru fiecare caz problemă / OK / necunoscut;
   - citirea bibliotecilor de jocuri (Steam, Epic, Riot, EA) pe fișiere de exemplu;
   - detectarea reală pe Windows: rulează pe PC-ul de dezvoltare și în CI (doar citește) și dă valori plauzibile.
-- [ ] **1.7 CI**: `pco health` și `pco health --json` rulează pe Windows.
+- [x] **1.7 CI**: `pco health` și `pco health --json` rulează pe Windows.
 - [ ] **1.8 Testul proprietarului**: rulezi `pco health` pe laptopul tău (doar citește — permis) și îmi spui dacă
   hardware-ul și problemele arătate corespund realității. ~5 minute.
 

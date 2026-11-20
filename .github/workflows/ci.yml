@@ -68,6 +68,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo run -q -p pco-cli -- --lang ro status
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Stage 1: read-only health report, as text and as JSON.
+          cargo run -q -p pco-cli -- --lang ro health
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $json = (cargo run -q -p pco-cli -- health --json) -join "`n"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $report = $json | ConvertFrom-Json
+          $count = @($report.findings).Count
+          Write-Host "::notice title=pco health on the runner::build $($report.hardware.windows.build), $count findings, probe errors: $(@($report.hardware.probe_errors) -join '; ')"
 
       - name: Interrupted apply is undone at the next start (exit criterion 2)
         shell: pwsh
