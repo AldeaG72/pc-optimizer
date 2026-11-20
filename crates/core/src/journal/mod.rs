@@ -277,7 +277,45 @@ impl Journal {
     }
 
     pub fn finish_session(&mut self, id: SessionId, status: Status) -> Result<()> {
-        let current = self.session(id)?.status;
+        self.finish_session_rolling_back(id, status, &[])
+    }
+
+    /// Finishes a session and marks `rolled_back` entries (from earlier sessions) as
+    /// `rolled_back`, all in one transaction. An undo session uses this so that a crash can
+    /// never leave "the original change is undone" recorded without "the undo finished".
+    pub fn finish_session_rolling_back(
+        &mut self,
+        id: SessionId,
+        status: Status,
+        rolled_back: &[EntryId],
+    ) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        for entry in rolled_back {
+            let current = entry_status(&tx, *entry)?;
+            if !current.can_become(Status::RolledBack) {
+                return Err(JournalError::InvalidTransition {
+                    what: "entry",
+                    id: entry.0,
+                    from: current,
+                    to: Status::RolledBack,
+                });
+            }
+            tx.execute(
+                "UPDATE entries SET status = 'rolled_back', updated_at = ?1 WHERE id = ?2",
+                params![now_ms(), entry.0],
+            )?;
+        }
+        let current: Option<String> = tx
+            .query_row("SELECT status FROM sessions WHERE id = ?1", [id.0], |r| {
+                r.get(0)
+            })
+            .optional()?;
+        let current: Status = current
+            .ok_or(JournalError::NotFound {
+                what: "session",
+                id: id.0,
+            })?
+            .parse()?;
         if !current.can_become(status) {
             return Err(JournalError::InvalidTransition {
                 what: "session",
@@ -286,10 +324,26 @@ impl Journal {
                 to: status,
             });
         }
-        self.conn.execute(
+        tx.execute(
             "UPDATE sessions SET status = ?1, finished_at = ?2 WHERE id = ?3",
             params![status.as_str(), now_ms(), id.0],
         )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Adds an error note to an entry without changing its status.
+    pub fn set_entry_error(&mut self, id: EntryId, error: &str) -> Result<()> {
+        let changed = self.conn.execute(
+            "UPDATE entries SET error = ?1, updated_at = ?2 WHERE id = ?3",
+            params![error, now_ms(), id.0],
+        )?;
+        if changed == 0 {
+            return Err(JournalError::NotFound {
+                what: "entry",
+                id: id.0,
+            });
+        }
         Ok(())
     }
 
@@ -483,6 +537,20 @@ fn entry_from_row(row: &Row<'_>) -> rusqlite::Result<Result<Entry>> {
             error,
         })
     })())
+}
+
+fn entry_status(conn: &Connection, id: EntryId) -> Result<Status> {
+    let status: Option<String> = conn
+        .query_row("SELECT status FROM entries WHERE id = ?1", [id.0], |r| {
+            r.get(0)
+        })
+        .optional()?;
+    status
+        .ok_or(JournalError::NotFound {
+            what: "entry",
+            id: id.0,
+        })?
+        .parse()
 }
 
 fn now_ms() -> i64 {

@@ -90,7 +90,7 @@ pub struct Platform {
 }
 
 /// Registry root. Only the two hives the app is allowed to touch.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, serde::Serialize)]
 pub enum Hive {
     #[serde(rename = "HKCU")]
     CurrentUser,
