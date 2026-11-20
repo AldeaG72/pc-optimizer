@@ -22,7 +22,7 @@ use crate::backend::{
 };
 use crate::guard::{platform_mismatch, PlatformMismatch, SystemInfo};
 use crate::journal::{EntryId, Journal, JournalError, NewEntry, SessionId, SessionKind, Status};
-use crate::recipe::{Action, Hive, Recipe, RegistryOp, ServiceStartup};
+use crate::recipe::{Action, Hive, Recipe, RegValue, RegistryAction, RegistryOp, ServiceStartup};
 
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
@@ -77,6 +77,11 @@ pub enum NotApplicable {
     },
     /// The recipe's `platform` block excludes this PC.
     Platform(PlatformMismatch),
+    /// An `only_if` value does not match: the user (or another tool) chose something else.
+    Precondition {
+        target: String,
+        expected: RegValue,
+    },
 }
 
 /// Where a recipe stands on this PC.
@@ -235,6 +240,15 @@ impl<'a> Engine<'a> {
             };
             let desired = desired_state(action, &current);
             let in_place = desired.is_satisfied_by(&current);
+            if !in_place {
+                if let Some(unmet) = unmet_precondition(action, &current) {
+                    return Ok(RecipePlan {
+                        recipe_id: recipe.id.clone(),
+                        status: RecipeStatus::NotApplicable(unmet),
+                        actions: Vec::new(),
+                    });
+                }
+            }
             actions.push(ActionPlan {
                 index,
                 current,
@@ -402,6 +416,14 @@ impl<'a> Engine<'a> {
             let desired = desired_state(action, &current);
             if desired.is_satisfied_by(&current) {
                 continue;
+            }
+            if unmet_precondition(action, &current).is_some() {
+                // The value changed between the plan and now: leave it alone.
+                let rolled_back = self.roll_back(&done)?;
+                return Ok(ApplyOutcome::Failed {
+                    error: format!("{} changed while applying", current.target()),
+                    rolled_back,
+                });
             }
             self.inherit_created_keys(&mut current)?;
 
@@ -737,6 +759,25 @@ impl<'a> Engine<'a> {
 enum Captured {
     Found(Snapshot),
     NotApplicable(NotApplicable),
+}
+
+/// The action's `only_if` value, if the target does not currently hold it.
+fn unmet_precondition(action: &Action, current: &Snapshot) -> Option<NotApplicable> {
+    let Action::Registry(RegistryAction {
+        only_if: Some(expected),
+        ..
+    }) = action
+    else {
+        return None;
+    };
+    let holds = matches!(
+        current,
+        Snapshot::Registry { state: RegRead::Present(data), .. } if data.matches(expected)
+    );
+    (!holds).then(|| NotApplicable::Precondition {
+        target: current.target(),
+        expected: expected.clone(),
+    })
 }
 
 /// What the target should look like after the action, given its current state.

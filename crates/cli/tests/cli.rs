@@ -37,7 +37,13 @@ struct World {
 impl World {
     fn new() -> Self {
         Self {
-            reg: MemoryRegistry::new(),
+            // A fresh Windows: only the default Sticky Keys value (that recipe requires it).
+            reg: MemoryRegistry::new().with_value(
+                Hive::CurrentUser,
+                r"Control Panel\Accessibility\StickyKeys",
+                "Flags",
+                RegData::from_value(&RegValue::String("510".into())),
+            ),
             svc: MemoryServices::new().with_service(
                 "Fax",
                 ServiceState {

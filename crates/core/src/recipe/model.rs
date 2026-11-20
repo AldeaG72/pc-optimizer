@@ -175,6 +175,9 @@ pub struct RegistryAction {
     /// Value name inside the key.
     pub value: String,
     pub op: RegistryOp,
+    /// Apply only if the value currently equals this (e.g. the Windows default); otherwise
+    /// the recipe is "not applicable", so a value the user chose is never overwritten.
+    pub only_if: Option<RegValue>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
@@ -279,4 +282,6 @@ pub(crate) struct RawRegistryAction {
     pub set: Option<serde_yaml_ng::Value>,
     #[serde(default)]
     pub delete: Option<bool>,
+    #[serde(default)]
+    pub only_if: Option<serde_yaml_ng::Value>,
 }

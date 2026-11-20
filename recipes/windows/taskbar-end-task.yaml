@@ -22,9 +22,12 @@ requires_restart: explorer
 platform:
   min_build: 22631
 sources:
-  - https://learn.microsoft.com/windows/apps/develop/dev-home/
+  # Documents the "End Task" toggle (Settings › System › Advanced, formerly "For developers"),
+  # but not its registry value.
+  - https://learn.microsoft.com/en-us/windows/advanced-settings/
+# Docs: the setting is documented; the registry value and the minimum build (23H2 = 22631) are
+# not (checked 2026-11-20). Stays `false`; the VM test will confirm the value.
 verified: false
-# De verificat: cheia și build-ul minim (Windows 11 23H2). Sursa de mai sus e un placeholder; înlocuiește-o cu documentația exactă.
 actions:
   - type: registry
     hive: HKCU

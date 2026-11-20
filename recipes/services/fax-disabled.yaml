@@ -1,14 +1,16 @@
 id: services.fax-disabled
-version: 1
+version: 2
 name:
   ro: Serviciul Fax oprit
   en: Fax service disabled
 description:
-  ro: Serviciul de fax nu mai pornește. Pe multe PC-uri nici nu e instalat.
-  en: The Fax service no longer starts. Many PCs don't have it installed.
+  ro: Serviciul de fax nu mai pornește. Pe Windows 11 de obicei nici nu e instalat.
+  en: The Fax service no longer starts. On Windows 11 it is usually not even installed.
 category: services
 risk: safe
-profiles: [recommended, laptop]
+# Not offered to users: it exists to test service actions and "not applicable on this PC"
+# (owner decision, 2026-11-20).
+profiles: []
 impact:
   ro: Foarte mic
   en: Very low
@@ -22,7 +24,12 @@ requires_restart: none
 platform:
   min_build: 22000
 sources:
-  - https://learn.microsoft.com/windows-server/security/windows-services/security-guidelines-for-disabling-system-services-in-windows-server
+  # Windows Fax and Scan is an optional feature, not preinstalled after Windows 11 22H2;
+  # its service appears as "Fax" in services.msc (Microsoft Q&A).
+  - https://learn.microsoft.com/en-us/answers/questions/2244364/windows-11-pro-missing-fax-and-scan
+  - https://learn.microsoft.com/en-us/answers/questions/2544470/windows-fax-service-not-staying-started
+# Docs: no official Microsoft page names the service (checked 2026-11-20; the Windows Server
+# 2016 services guide previously cited here does not list Fax). Stays `false`.
 verified: false
 actions:
   - type: service

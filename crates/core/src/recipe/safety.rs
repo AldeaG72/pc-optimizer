@@ -146,6 +146,7 @@ mod tests {
             key: key.into(),
             value: value.into(),
             op: RegistryOp::Set(RegValue::Dword(0)),
+            only_if: None,
         })
     }
 

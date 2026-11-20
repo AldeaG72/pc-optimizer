@@ -221,11 +221,33 @@ fn convert_registry(i: usize, r: RawRegistryAction) -> Result<RegistryAction, Pr
         }
     };
 
+    let only_if = match (r.only_if, &op) {
+        (None, _) => None,
+        (Some(_), RegistryOp::Delete) => {
+            return Err((
+                field("only_if"),
+                "`only_if` can only be used together with `set`".into(),
+            ))
+        }
+        (Some(expected), RegistryOp::Set(target)) => {
+            let expected =
+                convert_value(target.kind(), expected).map_err(|m| (field("only_if"), m))?;
+            if &expected == target {
+                return Err((
+                    field("only_if"),
+                    "`only_if` equals `set`, so it checks nothing".into(),
+                ));
+            }
+            Some(expected)
+        }
+    };
+
     Ok(RegistryAction {
         hive: r.hive,
         key: r.key,
         value: r.value,
         op,
+        only_if,
     })
 }
 

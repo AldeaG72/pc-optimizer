@@ -22,7 +22,11 @@ requires_restart: none
 platform:
   min_build: 22000
 sources:
+  # Documents exactly this value: HKCU\Software\Microsoft\GameBar, AutoGameModeEnabled,
+  # REG_DWORD 0 or 1, "toggle Gaming -> Game Mode -> Game Mode".
+  - https://learn.microsoft.com/en-us/windows/apps/develop/settings/settings-windows-11
   - https://support.microsoft.com/windows/use-game-mode-while-gaming-on-your-windows-pc
+# Docs: confirmed (2026-11-20). Becomes `true` once the CI apply → undo test passes (Stage 0, step 9).
 verified: false
 actions:
   - type: registry

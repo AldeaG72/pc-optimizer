@@ -263,6 +263,27 @@ fn cases() -> Vec<Case> {
             "fixture.yaml",
             false,
         ),
+        replace(
+            "only_if with delete",
+            &[(
+                "    kind: dword\n    set: 0",
+                "    delete: true\n    only_if: 1",
+            )],
+            "actions[0].only_if",
+            true,
+        ),
+        replace(
+            "only_if of the wrong type",
+            &[("    set: 0", "    set: 0\n    only_if: \"1\"")],
+            "actions[0].only_if",
+            false,
+        ),
+        replace(
+            "only_if equal to set",
+            &[("    set: 0", "    set: 0\n    only_if: 0")],
+            "actions[0].only_if",
+            false,
+        ),
     ]
 }
 
@@ -319,6 +340,7 @@ fn all_repository_recipes_load() {
         [Action::Registry(a)] => {
             assert_eq!(a.hive, Hive::CurrentUser);
             assert_eq!(a.op, RegistryOp::Set(RegValue::String("506".into())));
+            assert_eq!(a.only_if, Some(RegValue::String("510".into())));
         }
         other => panic!("unexpected actions: {other:?}"),
     }

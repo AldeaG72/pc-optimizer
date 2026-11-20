@@ -49,6 +49,7 @@ na.build_too_new: "e doar pentru Windows build {max} sau mai vechi (acest PC: {c
 na.edition: "e doar pentru ediția {allowed} (acest PC: {current})"
 na.form_factor: "e doar pentru {required} (tipul acestui PC nu e încă detectat)"
 na.unknown_edition: "necunoscută"
+na.precondition: "se aplică doar când {target} are valoarea implicită {expected} (aici a fost schimbată, deci o las cum e)"
 
 form.desktop: "desktop"
 form.laptop: "laptop"

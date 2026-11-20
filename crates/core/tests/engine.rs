@@ -456,6 +456,47 @@ fn platform_limits_make_a_recipe_not_applicable() {
 }
 
 #[test]
+fn only_if_protects_values_the_user_chose() {
+    let only_if = |current: Option<u32>| {
+        let mut reg = MemoryRegistry::new().with_key(HKCU, KEY);
+        if let Some(v) = current {
+            reg = reg.with_value(HKCU, KEY, "A", dword(v));
+        }
+        let mut w = World::new(reg.clone());
+        let r = recipe(
+            "test.only-if",
+            &format!(
+                "  - {{type: registry, hive: HKCU, key: '{KEY}', value: A, kind: dword, set: 6, only_if: 10}}\n"
+            ),
+        );
+        let status = w.engine().plan(&r).unwrap().status;
+        let outcome = w.engine().apply(&[&r]).unwrap().results[0].1.clone();
+        (status, outcome, w.reg, reg)
+    };
+
+    // The default value: applied, and undo-able as usual.
+    let (status, outcome, _, _) = only_if(Some(10));
+    assert_eq!(status, RecipeStatus::NotApplied);
+    assert_eq!(outcome, ApplyOutcome::Applied { changed: 1 });
+
+    // Already at the target: "already in place", whatever only_if says.
+    let (status, _, _, _) = only_if(Some(6));
+    assert_eq!(status, RecipeStatus::AlreadyInPlace);
+
+    // Something else, or missing: left alone.
+    for current in [Some(11), None] {
+        let (status, outcome, after, before) = only_if(current);
+        let expected = NotApplicable::Precondition {
+            target: format!(r"HKCU\{KEY}\A"),
+            expected: RegValue::Dword(10),
+        };
+        assert_eq!(status, RecipeStatus::NotApplicable(expected.clone()));
+        assert_eq!(outcome, ApplyOutcome::NotApplicable(expected));
+        assert!(after.same_contents(&before), "{current:?} was changed");
+    }
+}
+
+#[test]
 fn admin_needs_are_known_before_undo_and_recovery() {
     let mut w = World::new(MemoryRegistry::new());
     w.svc = MemoryServices::new().with_service(
@@ -632,7 +673,13 @@ fn every_repository_recipe_applies_and_undoes_exactly() {
 
     for r in &recipes {
         // An empty registry is the hardest case: every key must be created and removed.
-        let mut w = World::new(MemoryRegistry::new());
+        // Only the Windows default Sticky Keys value is there (the recipe requires it).
+        let mut w = World::new(MemoryRegistry::new().with_value(
+            HKCU,
+            r"Control Panel\Accessibility\StickyKeys",
+            "Flags",
+            RegData::from_value(&RegValue::String("510".into())),
+        ));
         w.svc = MemoryServices::new().with_service("Fax", manual);
         let (reg0, svc0) = (w.reg.clone(), w.svc.clone());
 

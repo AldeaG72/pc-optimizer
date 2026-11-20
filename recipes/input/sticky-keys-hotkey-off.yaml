@@ -1,5 +1,5 @@
 id: input.sticky-keys-hotkey-off
-version: 1
+version: 2
 name:
   ro: Scurtătura Sticky Keys oprită
   en: Sticky Keys shortcut off
@@ -22,10 +22,17 @@ requires_restart: signout
 platform:
   min_build: 22000
 sources:
+  # STICKYKEYS flags: SKF_HOTKEYACTIVE = 0x00000004 ("press SHIFT five times").
+  # The Windows default 510 (0x1FE) without that bit is 506 (0x1FA).
   - https://learn.microsoft.com/windows/win32/api/winuser/ns-winuser-stickykeys
+  # Community answers on Microsoft Q&A naming this registry value and 510 → 506.
+  - https://learn.microsoft.com/en-us/answers/questions/151522/disabling-stickey-dialog
+# Docs: the flag values are documented; the registry location (REG_SZ "Flags") is not
+# (checked 2026-11-20). Stays `false`.
+# `only_if: "510"`: changed only from the Windows default, so other Sticky Keys options a user
+# chose (e.g. Sticky Keys on = 511) are never overwritten (owner decision, 2026-11-20).
+# Later: clear just the one bit, or use SystemParametersInfo(SPI_SETSTICKYKEYS).
 verified: false
-# ATENȚIE: Flags e REG_SZ (text). 506 = 510 fără bitul SKF_HOTKEYACTIVE. De verificat bit cu bit
-# și, ideal, de aplicat prin SystemParametersInfo(SPI_SETSTICKYKEYS) într-o versiune viitoare.
 actions:
   - type: registry
     hive: HKCU
@@ -33,3 +40,4 @@ actions:
     value: Flags
     kind: string
     set: "506"
+    only_if: "510"

@@ -23,6 +23,13 @@ platform:
   min_build: 22000
 sources:
   - https://support.microsoft.com/windows/record-a-game-clip-on-your-pc-with-xbox-game-bar
+  # Community answers on Microsoft Q&A naming both values below.
+  - https://learn.microsoft.com/en-us/answers/questions/3738984/how-to-disable-xbox-game-bar
+  # The documented alternative is the AllowGameDVR policy (HKLM, all users, shows "managed by
+  # your organization"). Not used, by owner decision (2026-11-20): this recipe matches the
+  # per-user toggle instead.
+  - https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-applicationmanagement
+# Docs: neither value is documented by Microsoft (checked 2026-11-20). Stays `false`.
 verified: false
 actions:
   - type: registry

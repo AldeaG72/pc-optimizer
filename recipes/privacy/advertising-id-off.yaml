@@ -1,5 +1,5 @@
 id: privacy.advertising-id-off
-version: 1
+version: 2
 name:
   ro: ID de publicitate oprit
   en: Advertising ID off
@@ -22,12 +22,27 @@ requires_restart: none
 platform:
   min_build: 22000
 sources:
+  # Section 18.1 "General": REG_DWORD Enabled = 0 in
+  # HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AdvertisingInfo.
+  - https://learn.microsoft.com/en-us/windows/privacy/manage-connections-from-windows-operating-system-components-to-microsoft-services
   - https://support.microsoft.com/windows/general-privacy-settings-in-windows
+# Docs: the HKLM value is documented (checked 2026-11-20). The HKCU value is what the Settings
+# toggle "Let apps show me personalized ads by using my advertising ID" writes, but it is not
+# documented. Both are set, by owner decision. Stays `false` until the HKCU value is documented
+# or the owner accepts it.
 verified: false
 actions:
+  # The per-user Settings toggle.
   - type: registry
     hive: HKCU
     key: Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo
+    value: Enabled
+    kind: dword
+    set: 0
+  # The value Microsoft documents (whole PC; needs administrator rights).
+  - type: registry
+    hive: HKLM
+    key: SOFTWARE\Microsoft\Windows\CurrentVersion\AdvertisingInfo
     value: Enabled
     kind: dword
     set: 0

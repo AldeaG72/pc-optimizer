@@ -51,11 +51,15 @@
         "value": { "type": "string", "minLength": 1 },
         "kind": { "enum": ["dword", "qword", "string"] },
         "set": { "type": ["integer", "string"] },
-        "delete": { "const": true }
+        "delete": { "const": true },
+        "only_if": {
+          "type": ["integer", "string"],
+          "description": "Aplică doar dacă valoarea actuală e aceasta (de ex. cea implicită Windows); altfel rețeta „nu se aplică”."
+        }
       },
       "oneOf": [
         { "required": ["kind", "set"], "not": { "required": ["delete"] } },
-        { "required": ["delete"], "not": { "anyOf": [ { "required": ["set"] }, { "required": ["kind"] } ] } }
+        { "required": ["delete"], "not": { "anyOf": [ { "required": ["set"] }, { "required": ["kind"] }, { "required": ["only_if"] } ] } }
       ]
     },
     "service": {

@@ -20,7 +20,7 @@ Asta e funcția pe care proprietarul a ales-o ca „de făcut perfect prima”.
   - `pco undo <id>... | --all`;
   - `pco status` — sesiuni din jurnal.
   Mesajele pentru utilizator sunt în română sau engleză, după limba Windows, cu override `--lang ro|en`.
-- [ ] **0.9 Rețetele inițiale** din `recipes/` (verifică fiecare cheie în documentația Microsoft și corectează unde e cazul; adaugă `sources`).
+- [x] **0.9 Rețetele inițiale** din `recipes/` (verifică fiecare cheie în documentația Microsoft și corectează unde e cazul; adaugă `sources`). *(Rezultate și decizii în `docs/VERIFICARE-RETETE.md`. Toate rămân `verified: false` până la testul din CI.)*
 - [ ] **0.10 Teste**:
   - unitare pe backend-ul în memorie: plan, apply, undo, „lipsă vs. 0”, eșec la mijlocul unei rețete, recuperare după `pending`;
   - de integrare (doar pe Windows) pe cheia `HKCU\Software\PcOptimizerTest`;

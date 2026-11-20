@@ -49,6 +49,7 @@ na.build_too_new: "is only for Windows build {max} or older (this PC: {current})
 na.edition: "is only for the {allowed} edition (this PC: {current})"
 na.form_factor: "is only for {required} PCs (this PC's type is not detected yet)"
 na.unknown_edition: "unknown"
+na.precondition: "applies only when {target} has its default value {expected} (it was changed here, so I leave it as it is)"
 
 form.desktop: "desktop"
 form.laptop: "laptop"

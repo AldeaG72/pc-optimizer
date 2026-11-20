@@ -29,6 +29,14 @@ fn arch_name(arch: Arch) -> String {
     arch.to_string()
 }
 
+fn value(t: &Texts, v: &RegValue) -> String {
+    match v {
+        RegValue::Dword(n) => t.f("state.number", &[("value", n)]),
+        RegValue::Qword(n) => t.f("state.number", &[("value", n)]),
+        RegValue::String(s) => t.f("state.text", &[("value", s)]),
+    }
+}
+
 pub fn state(t: &Texts, s: &Snapshot) -> String {
     match s {
         Snapshot::Registry { state, .. } => match state {
@@ -61,6 +69,10 @@ pub fn state(t: &Texts, s: &Snapshot) -> String {
 pub fn not_applicable(t: &Texts, n: &NotApplicable) -> String {
     match n {
         NotApplicable::ServiceMissing { name } => t.f("na.service_missing", &[("name", name)]),
+        NotApplicable::Precondition { target, expected } => t.f(
+            "na.precondition",
+            &[("target", target), ("expected", &value(t, expected))],
+        ),
         NotApplicable::Platform(p) => match p {
             PlatformMismatch::BuildTooOld { required, current } => t.f(
                 "na.build_too_old",
