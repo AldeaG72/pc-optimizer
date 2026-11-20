@@ -94,6 +94,12 @@ Măsurătoarea pornește automat la 10 s după intrarea în joc, durează 60 s; 
 Afișează: FPS mediu, 1% low, frametime mediu, „înainte → după (+X%)”. Jocurile fără hartă fixă (Valorant, LoL) sunt măsurate în timpul jocului și marcate „mai puțin precis”. Dacă FPS-ul scade: „Anulez modificările?”.
 Istoric opțional (listă simplă). Locul benchmark-ului: fluxul Tweak-uri (înainte/după „Aplică tot”).
 
+Decizii pentru Etapa 2 (2026-11-21):
+- **PresentMon oficial inclus:** versiunea oficială de pe GitHub-ul Intel (GameTechDev), cu amprenta SHA-256 fixată și verificată, livrată alături de aplicație, cu licența MIT menționată. Nu scriem propria măsurare.
+- **Pornirea măsurării:** utilizatorul apasă Enter când e în meci; urmează 10 s de așteptare, apoi 60 s de măsurare (pentru fiecare dintre cele 3 rulări).
+- **Scădere reală de FPS:** FPS-ul mediu „după” e cu peste 3% sub „înainte” **și** diferența e mai mare decât variația dintre cele 3 rulări. Doar atunci se propune anularea.
+- **Istoric:** toate rezultatele se păstrează local, în jurnal (fără internet); se pot șterge oricând. Afișarea istoricului e opțiunea din Setări (Etapa 3).
+
 ### 4.5 Mod joc (în tray)
 Detectează jocul pornit; fiecare acțiune se bifează separat: închide aplicațiile alese (listă sugerată + bife; se redeschid după), plan de alimentare maxim, notificări oprite, update-uri din fundal pe pauză. La ieșirea din joc, totul revine. Consum țintă: sub 30 MB RAM, CPU aproape zero. Nu atinge procesul jocului.
 
