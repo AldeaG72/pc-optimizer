@@ -74,7 +74,7 @@ pub enum RequiresRestart {
     Reboot,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Edition {
     Home,
@@ -83,7 +83,7 @@ pub enum Edition {
     Education,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FormFactor {
     #[default]
