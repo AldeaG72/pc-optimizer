@@ -16,6 +16,22 @@ pub struct I18n {
     pub en: String,
 }
 
+impl I18n {
+    pub fn get(&self, lang: Lang) -> &str {
+        match lang {
+            Lang::Ro => &self.ro,
+            Lang::En => &self.en,
+        }
+    }
+}
+
+/// The two supported languages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Lang {
+    Ro,
+    En,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Category {

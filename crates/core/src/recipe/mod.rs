@@ -11,8 +11,8 @@ mod safety;
 mod validate;
 
 pub use error::{LoadErrors, RecipeError};
-pub use load::{load_dir, parse_recipe};
+pub use load::{load_dir, load_embedded, parse_recipe};
 pub use model::{
-    Action, Category, Edition, FormFactor, Hive, I18n, Platform, Profile, Recipe, RegKind,
+    Action, Category, Edition, FormFactor, Hive, I18n, Lang, Platform, Profile, Recipe, RegKind,
     RegValue, RegistryAction, RegistryOp, RequiresRestart, Risk, ServiceAction, ServiceStartup,
 };

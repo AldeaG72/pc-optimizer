@@ -1,0 +1,105 @@
+# Textele pentru utilizator, în română. Aceleași chei ca în en.yaml (un test verifică).
+# {nume} se înlocuiește la afișare.
+
+help.about: "PC Optimizer — setări Windows 11 documentate și reversibile, pentru jocuri."
+help.lang: "Limba mesajelor (implicit: limba Windows)"
+help.list: "Arată toate rețetele și starea lor"
+help.plan: "Arată ce s-ar schimba, fără să schimbe nimic"
+help.apply: "Aplică rețetele alese"
+help.dry_run: "Doar arată ce s-ar face; nu schimbă nimic"
+help.undo: "Anulează rețetele alese (revine exact la starea dinainte)"
+help.all: "Anulează tot ce a schimbat aplicația"
+help.status: "Arată istoricul sesiunilor din jurnal"
+help.ids: "ID-urile rețetelor, de ex. gaming.game-mode-on"
+
+blocked.not_windows11: "Aplicația merge doar pe Windows 11 (build 22000 sau mai nou). Acest PC are build {build}."
+blocked.not_x64: "Aplicația merge doar pe Windows pe 64 de biți pentru Intel/AMD (x64). Acest PC este {arch}."
+blocked.needs_admin: "Pentru asta e nevoie de drepturi de administrator. Închide fereastra, deschide PowerShell cu click dreapta → „Run as administrator” și rulează din nou comanda."
+blocked.game_running: "Închide jocul întâi: {list}"
+
+recovery.done: "O sesiune anterioară (#{session}) a fost întreruptă. Am anulat-o automat: {count} modificări restaurate."
+recovery.failed: "O sesiune anterioară (#{session}) a fost întreruptă și nu am putut-o anula complet: {errors}"
+recovery.needs_admin: "O sesiune anterioară a fost întreruptă. Ca s-o anulez automat, rulează pco ca administrator."
+recovery.game_running: "O sesiune anterioară a fost întreruptă. O anulez automat după ce închizi jocul: {list}"
+recovery.pending_warning: "Atenție: stările afișate pot include modificări din sesiunea întreruptă."
+
+error.unknown_recipe: "Nu există rețeta „{id}”. Vezi lista cu: pco list"
+error.recipes_invalid: "Rețetele incluse în program nu sunt valide (eroare de program):\n{details}"
+error.generic: "Eroare: {details}"
+
+list.col.id: "ID"
+list.col.category: "Categorie"
+list.col.risk: "Risc"
+list.col.status: "Stare"
+
+risk.safe: "sigur"
+risk.moderate: "moderat"
+risk.advanced: "avansat"
+
+status.not_applied: "neaplicat"
+status.applied: "aplicat"
+status.already: "deja așa (nu de la aplicație)"
+status.modified: "modificat în afara aplicației"
+status.not_applicable: "nu se aplică: {reason}"
+status.error: "eroare: {details}"
+
+na.service_missing: "serviciul „{name}” nu e instalat pe acest PC"
+na.build_too_old: "cere Windows build {required} sau mai nou (acest PC: {current})"
+na.build_too_new: "e doar pentru Windows build {max} sau mai vechi (acest PC: {current})"
+na.edition: "e doar pentru ediția {allowed} (acest PC: {current})"
+na.form_factor: "e doar pentru {required} (tipul acestui PC nu e încă detectat)"
+na.unknown_edition: "necunoscută"
+
+form.desktop: "desktop"
+form.laptop: "laptop"
+
+state.key_missing: "cheia nu există"
+state.value_missing: "nu există"
+state.number: "{value}"
+state.text: "„{value}” (text)"
+state.raw: "valoare de tip {type} ({len} octeți)"
+state.service: "pornire {start}"
+
+start.boot: "la boot"
+start.system: "de sistem"
+start.automatic: "automată"
+start.automatic_delayed: "automată (întârziată)"
+start.manual: "manuală"
+start.disabled: "dezactivată"
+
+plan.title: "{id} — {name}"
+plan.status: "  Stare: {status}"
+plan.line: "  {target}: {old} → {new}"
+plan.in_place: "  {target}: {old} (deja așa)"
+plan.dry_run: "Simulare: nu am schimbat nimic."
+
+apply.applied: "+ {id}: aplicat ({count} modificări)"
+apply.already: "= {id}: era deja aplicat"
+apply.not_applicable: "- {id}: nu se aplică pe acest PC: {reason}"
+apply.failed: "! {id}: nu s-a putut aplica; nu a rămas nimic schimbat. Detalii: {error}"
+apply.failed_dirty: "! {id}: nu s-a putut aplica, iar unele modificări nu au putut fi anulate. Detalii: {error}. Verifică cu: pco status"
+apply.restart: "Unele modificări au efect abia după: {what}."
+
+restart.explorer: "repornirea Explorer (sau delogare)"
+restart.signout: "delogare și logare din nou"
+restart.reboot: "repornirea PC-ului"
+
+undo.undone: "+ {id}: anulat ({count} setări restaurate)"
+undo.nothing: "= {id}: nimic de anulat"
+undo.failed: "! {id}: nu s-a putut anula; a rămas aplicat ca înainte. Detalii: {error}"
+undo.failed_dirty: "! {id}: anularea s-a oprit la jumătate. Detalii: {error}. Verifică cu: pco status"
+undo.none: "Aplicația nu are nicio modificare de anulat."
+
+status.sessions: "Sesiuni (cele mai noi primele):"
+status.session: "  #{id}  {kind}  {status}  {time}  {count} modificări"
+status.no_sessions: "Nicio sesiune în jurnal."
+status.applied_recipes: "Rețete aplicate acum de aplicație: {list}"
+status.no_applied: "Nicio rețetă aplicată acum de aplicație."
+
+kind.apply: "aplicare"
+kind.undo: "anulare"
+
+session.pending: "întreruptă"
+session.applied: "terminată"
+session.rolled_back: "anulată"
+session.failed: "eșuată"

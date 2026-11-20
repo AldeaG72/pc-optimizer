@@ -56,7 +56,28 @@ pub fn load_dir(dir: &Path) -> Result<Vec<Recipe>, LoadErrors> {
             Err(source) => errors.push(RecipeError::Io { path: file, source }),
         }
     }
+    finish(recipes, errors, dir)
+}
 
+/// Loads recipes compiled into the program, as `(relative path, YAML text)` pairs.
+/// Same checks as [`load_dir`].
+pub fn load_embedded(files: &[(&str, &str)]) -> Result<Vec<Recipe>, LoadErrors> {
+    let mut recipes = Vec::new();
+    let mut errors = Vec::new();
+    for (path, text) in files {
+        match parse_recipe(text, Path::new(path)) {
+            Ok(recipe) => recipes.push(recipe),
+            Err(e) => errors.push(e),
+        }
+    }
+    finish(recipes, errors, Path::new("<built-in recipes>"))
+}
+
+fn finish(
+    mut recipes: Vec<Recipe>,
+    mut errors: Vec<RecipeError>,
+    dir: &Path,
+) -> Result<Vec<Recipe>, LoadErrors> {
     let mut first_seen: HashMap<&str, &Path> = HashMap::new();
     for recipe in &recipes {
         if let Some(first) = first_seen.insert(&recipe.id, &recipe.source_file) {

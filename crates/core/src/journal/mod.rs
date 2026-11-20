@@ -472,6 +472,17 @@ impl Journal {
         rows.map(|r| r?).collect()
     }
 
+    /// Every change from `apply` sessions that is still in place, oldest first.
+    pub fn all_applied_entries(&self) -> Result<Vec<Entry>> {
+        let mut stmt = self.conn.prepare(&format!(
+            "{ENTRY_COLUMNS} WHERE status = 'applied'
+               AND session_id IN (SELECT id FROM sessions WHERE kind = 'apply')
+             ORDER BY id"
+        ))?;
+        let rows = stmt.query_map([], entry_from_row)?;
+        rows.map(|r| r?).collect()
+    }
+
     /// Ids of every recipe with changes still in place, sorted.
     pub fn applied_recipe_ids(&self) -> Result<Vec<String>> {
         let mut stmt = self.conn.prepare(

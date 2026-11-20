@@ -141,6 +141,36 @@ fn missing_is_not_zero_and_created_keys_are_removed() {
 }
 
 #[test]
+fn shared_parent_keys_are_removed_whatever_the_undo_order() {
+    let a = recipe(
+        "test.a",
+        &reg_action(r"Software\PcOptimizerTest\Shared\A", "Flag", 1),
+    );
+    let b = recipe(
+        "test.b",
+        &reg_action(r"Software\PcOptimizerTest\Shared\B", "Flag", 2),
+    );
+    for (first, second) in [("test.a", "test.b"), ("test.b", "test.a")] {
+        let start = MemoryRegistry::new();
+        let mut w = World::new(start.clone());
+        // `a` creates Software\PcOptimizerTest\Shared; `b` only adds its own subkey.
+        w.engine().apply(&[&a]).unwrap();
+        w.engine().apply(&[&b]).unwrap();
+
+        w.engine().undo(&[first]).unwrap();
+        assert!(
+            w.reg.key_exists(HKCU, r"Software\PcOptimizerTest\Shared"),
+            "still used by {second}"
+        );
+        w.engine().undo(&[second]).unwrap();
+        assert!(
+            w.reg.same_contents(&start),
+            "undo {first} then {second} left keys behind"
+        );
+    }
+}
+
+#[test]
 fn undo_keeps_keys_that_something_else_filled() {
     let start = MemoryRegistry::new().with_key(HKCU, "Software");
     let mut w = World::new(start);

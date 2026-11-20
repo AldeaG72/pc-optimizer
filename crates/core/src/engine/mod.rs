@@ -382,7 +382,7 @@ impl<'a> Engine<'a> {
         for (index, action) in recipe.actions.iter().enumerate() {
             // Capture again right before writing: the plan may be stale, and two actions may
             // touch the same target.
-            let current = match self.capture(action) {
+            let mut current = match self.capture(action) {
                 Ok(Captured::Found(s)) => s,
                 Ok(Captured::NotApplicable(_)) => {
                     let rolled_back = self.roll_back(&done)?;
@@ -403,6 +403,7 @@ impl<'a> Engine<'a> {
             if desired.is_satisfied_by(&current) {
                 continue;
             }
+            self.inherit_created_keys(&mut current)?;
 
             let entry = self.journal.record_pending(
                 sid,
@@ -622,6 +623,47 @@ impl<'a> Engine<'a> {
             state,
             missing_keys,
         })
+    }
+
+    /// Adds to a "not there yet" registry snapshot the keys on its path that the app created
+    /// for changes still in place. Whichever recipe is undone last then removes them, so the
+    /// order of undos does not matter. (Keys are removed only when empty, so a key still used
+    /// by another recipe stays.)
+    fn inherit_created_keys(&self, snapshot: &mut Snapshot) -> Result<(), EngineError> {
+        let Snapshot::Registry {
+            hive,
+            key,
+            state: RegRead::KeyMissing | RegRead::ValueMissing,
+            missing_keys,
+            ..
+        } = snapshot
+        else {
+            return Ok(());
+        };
+        let target = key.to_lowercase();
+        for entry in self.journal.all_applied_entries()? {
+            let Snapshot::Registry {
+                hive: their_hive,
+                missing_keys: theirs,
+                ..
+            } = entry.previous::<Snapshot>()?
+            else {
+                continue;
+            };
+            if their_hive != *hive {
+                continue;
+            }
+            for k in theirs {
+                let lower = k.to_lowercase();
+                let on_path = target == lower || target.starts_with(&format!("{lower}\\"));
+                if on_path && !missing_keys.iter().any(|m| m.eq_ignore_ascii_case(&k)) {
+                    missing_keys.push(k);
+                }
+            }
+        }
+        // Outermost first, as everywhere else.
+        missing_keys.sort_by_key(|k| k.split('\\').count());
+        Ok(())
     }
 
     /// The keys of `key`'s path that do not exist yet, outermost first.

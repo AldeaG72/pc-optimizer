@@ -1,0 +1,105 @@
+# User-facing texts in English. Same keys as ro.yaml (a test checks this).
+# {name} is replaced when shown.
+
+help.about: "PC Optimizer — documented, reversible Windows 11 settings for gaming."
+help.lang: "Language of the messages (default: the Windows language)"
+help.list: "Show every recipe and its state"
+help.plan: "Show what would change, without changing anything"
+help.apply: "Apply the chosen recipes"
+help.dry_run: "Only show what would be done; change nothing"
+help.undo: "Undo the chosen recipes (back to exactly the previous state)"
+help.all: "Undo everything the app has changed"
+help.status: "Show the session history from the journal"
+help.ids: "Recipe ids, e.g. gaming.game-mode-on"
+
+blocked.not_windows11: "This app runs only on Windows 11 (build 22000 or newer). This PC has build {build}."
+blocked.not_x64: "This app runs only on 64-bit Windows for Intel/AMD (x64). This PC is {arch}."
+blocked.needs_admin: "This needs administrator rights. Close this window, right-click PowerShell → “Run as administrator”, and run the command again."
+blocked.game_running: "Close the game first: {list}"
+
+recovery.done: "An earlier session (#{session}) was interrupted. I undid it automatically: {count} changes restored."
+recovery.failed: "An earlier session (#{session}) was interrupted and I could not fully undo it: {errors}"
+recovery.needs_admin: "An earlier session was interrupted. To undo it automatically, run pco as administrator."
+recovery.game_running: "An earlier session was interrupted. I will undo it automatically once you close the game: {list}"
+recovery.pending_warning: "Note: the states shown may include changes from the interrupted session."
+
+error.unknown_recipe: "There is no recipe “{id}”. See the list with: pco list"
+error.recipes_invalid: "The recipes built into the program are not valid (program bug):\n{details}"
+error.generic: "Error: {details}"
+
+list.col.id: "ID"
+list.col.category: "Category"
+list.col.risk: "Risk"
+list.col.status: "State"
+
+risk.safe: "safe"
+risk.moderate: "moderate"
+risk.advanced: "advanced"
+
+status.not_applied: "not applied"
+status.applied: "applied"
+status.already: "already set (not by the app)"
+status.modified: "changed outside the app"
+status.not_applicable: "not applicable: {reason}"
+status.error: "error: {details}"
+
+na.service_missing: "the “{name}” service is not installed on this PC"
+na.build_too_old: "needs Windows build {required} or newer (this PC: {current})"
+na.build_too_new: "is only for Windows build {max} or older (this PC: {current})"
+na.edition: "is only for the {allowed} edition (this PC: {current})"
+na.form_factor: "is only for {required} PCs (this PC's type is not detected yet)"
+na.unknown_edition: "unknown"
+
+form.desktop: "desktop"
+form.laptop: "laptop"
+
+state.key_missing: "key does not exist"
+state.value_missing: "does not exist"
+state.number: "{value}"
+state.text: "“{value}” (text)"
+state.raw: "value of type {type} ({len} bytes)"
+state.service: "startup {start}"
+
+start.boot: "boot"
+start.system: "system"
+start.automatic: "automatic"
+start.automatic_delayed: "automatic (delayed)"
+start.manual: "manual"
+start.disabled: "disabled"
+
+plan.title: "{id} — {name}"
+plan.status: "  State: {status}"
+plan.line: "  {target}: {old} → {new}"
+plan.in_place: "  {target}: {old} (already set)"
+plan.dry_run: "Dry run: nothing was changed."
+
+apply.applied: "+ {id}: applied ({count} changes)"
+apply.already: "= {id}: was already applied"
+apply.not_applicable: "- {id}: not applicable on this PC: {reason}"
+apply.failed: "! {id}: could not be applied; nothing was left changed. Details: {error}"
+apply.failed_dirty: "! {id}: could not be applied, and some changes could not be undone. Details: {error}. Check with: pco status"
+apply.restart: "Some changes take effect only after: {what}."
+
+restart.explorer: "restarting Explorer (or signing out)"
+restart.signout: "signing out and in again"
+restart.reboot: "restarting the PC"
+
+undo.undone: "+ {id}: undone ({count} settings restored)"
+undo.nothing: "= {id}: nothing to undo"
+undo.failed: "! {id}: could not be undone; it stays applied as before. Details: {error}"
+undo.failed_dirty: "! {id}: undo stopped halfway. Details: {error}. Check with: pco status"
+undo.none: "The app has no changes to undo."
+
+status.sessions: "Sessions (newest first):"
+status.session: "  #{id}  {kind}  {status}  {time}  {count} changes"
+status.no_sessions: "No sessions in the journal."
+status.applied_recipes: "Recipes currently applied by the app: {list}"
+status.no_applied: "No recipe is currently applied by the app."
+
+kind.apply: "apply"
+kind.undo: "undo"
+
+session.pending: "interrupted"
+session.applied: "finished"
+session.rolled_back: "rolled back"
+session.failed: "failed"
