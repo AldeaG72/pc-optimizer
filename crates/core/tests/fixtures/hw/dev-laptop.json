@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "windows": {
+    "build": 26100,
+    "edition": "pro",
+    "display_version": "24H2",
+    "domain_joined": false,
+    "mdm_enrolled": false
+  },
+  "cpu": {
+    "name": "12th Gen Intel(R) Core(TM) i5-1245U",
+    "cores": 10,
+    "threads": 12
+  },
+  "memory": [
+    {
+      "capacity_mb": 8192,
+      "rated_mhz": 3200,
+      "configured_mhz": 3200,
+      "slot": "Controller0-ChannelA",
+      "bank": "BANK 0"
+    },
+    {
+      "capacity_mb": 8192,
+      "rated_mhz": 3200,
+      "configured_mhz": 3200,
+      "slot": "Controller1-ChannelA",
+      "bank": "BANK 0"
+    }
+  ],
+  "gpus": [
+    {
+      "name": "Intel(R) Iris(R) Xe Graphics",
+      "vendor": "intel",
+      "vendor_id": 32902,
+      "device_id": 18088,
+      "dedicated_mb": 128,
+      "integrated": true,
+      "driver_version": "32.0.101.7088",
+      "driver_date": "2026-06-17"
+    }
+  ],
+  "displays": [
+    {
+      "name": "Built-in display",
+      "primary": true,
+      "width": 1920,
+      "height": 1200,
+      "refresh_hz": 60,
+      "max_refresh_hz": 60,
+      "native_width": 1920,
+      "native_height": 1200,
+      "hdr_enabled": false
+    }
+  ],
+  "directx": {
+    "auto_hdr": null,
+    "windowed_optimizations": null,
+    "variable_refresh_rate": null
+  },
+  "disks": [
+    {
+      "number": 0,
+      "model": "SAMSUNG MZAL4512HBLU-00BL2",
+      "media": "ssd",
+      "bus": "NVMe",
+      "size_bytes": 512110190592,
+      "healthy": true
+    }
+  ],
+  "volumes": [
+    {
+      "letter": "C",
+      "size_bytes": 509605834752,
+      "free_bytes": 403334291456,
+      "disk": 0,
+      "system": true
+    }
+  ],
+  "trim_enabled": true,
+  "power": {
+    "plan": "balanced",
+    "plan_name": "Balanced",
+    "has_battery": true,
+    "on_battery": true,
+    "form_factor": "laptop"
+  },
+  "security": {
+    "vbs_running": true,
+    "hvci_running": true
+  },
+  "software": [],
+  "games": [],
+  "probe_errors": []
+}

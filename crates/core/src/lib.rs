@@ -8,6 +8,7 @@
 pub mod backend;
 pub mod engine;
 pub mod guard;
+pub mod health;
 pub mod hw;
 pub mod journal;
 pub mod recipe;
