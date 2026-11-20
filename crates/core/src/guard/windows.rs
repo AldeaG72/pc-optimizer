@@ -75,7 +75,8 @@ pub fn host() -> Result<Host, ProbeError> {
         arch: native_arch()?,
         elevated: is_elevated()?,
         edition,
-        form_factor: None,
+        // Chassis type and battery (Stage 1); `None` if Windows does not say.
+        form_factor: crate::hw::windows::form_factor(),
     })
 }
 

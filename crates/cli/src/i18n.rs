@@ -37,6 +37,12 @@ impl Texts {
         self.map.get(key).map_or(key, String::as_str)
     }
 
+    /// Like [`Texts::t`], but as a `&String` usable as a message argument.
+    pub fn text(&self, key: &str) -> &String {
+        static MISSING: String = String::new();
+        self.map.get(key).unwrap_or(&MISSING)
+    }
+
     /// The text for `key` with `{name}` placeholders filled in.
     pub fn f(&self, key: &str, args: &[(&str, &dyn Display)]) -> String {
         let mut text = self.t(key).to_owned();

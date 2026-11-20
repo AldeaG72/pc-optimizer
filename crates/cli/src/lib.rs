@@ -8,6 +8,7 @@
 pub mod app;
 pub mod args;
 pub mod format;
+pub mod health;
 pub mod i18n;
 pub mod testing;
 

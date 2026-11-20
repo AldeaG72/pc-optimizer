@@ -49,6 +49,15 @@ pub fn detect() -> HwInfo {
     info
 }
 
+/// Desktop or laptop only (chassis type + battery), for the recipe guards.
+pub fn form_factor() -> Option<crate::recipe::FormFactor> {
+    let mut info = HwInfo::default();
+    let mut errors = Vec::new();
+    let wmi = wmi::WMIConnection::new().ok();
+    power::power(wmi.as_ref(), &mut info, &mut errors);
+    info.power.form_factor
+}
+
 /// Text from a fixed-size UTF-16 buffer, up to the first NUL.
 pub(crate) fn wide(buf: &[u16]) -> String {
     let len = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());

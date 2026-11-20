@@ -67,6 +67,8 @@ impl World {
             running: self.running.clone(),
             blocked: BlockedProcesses::builtin().unwrap(),
             recipes: recipe::load_embedded(RECIPES).unwrap(),
+            hw: Some(dev_laptop()),
+            today: pco_core::health::days_from_date("2026-11-21").unwrap(),
         };
         let mut out = Vec::new();
         let exit = run(&mut env, &texts, &cmd, &mut out);
@@ -76,6 +78,15 @@ impl World {
     fn ro(&mut self, cmd: Cmd) -> (Exit, String) {
         self.run(Lang::Ro, cmd)
     }
+}
+
+/// The development laptop's real hardware snapshot (shared with the core tests).
+fn dev_laptop() -> pco_core::hw::HwInfo {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../core/tests/fixtures/hw/dev-laptop.json"
+    );
+    serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
 fn ids(list: &[&str]) -> Vec<String> {
@@ -479,6 +490,101 @@ fn english_output() {
     assert!(
         out.contains("Recipes currently applied by the app: gaming.game-dvr-off"),
         "{out}"
+    );
+}
+
+#[test]
+fn every_health_check_has_its_texts_in_both_languages() {
+    use pco_core::health::CheckId;
+    for lang in [Lang::Ro, Lang::En] {
+        let map = translation(lang);
+        for check in CheckId::ALL {
+            for suffix in ["title", "fix"] {
+                let key = format!("health.{}.{suffix}", check.key());
+                assert!(map.contains_key(&key), "{lang:?}: missing {key}");
+            }
+            for outcome in check.reported_outcomes() {
+                let key = format!("health.{}.{}", check.key(), outcome.key());
+                assert!(map.contains_key(&key), "{lang:?}: missing {key}");
+                assert!(map.contains_key(&format!("outcome.{}", outcome.key())));
+            }
+        }
+    }
+}
+
+#[test]
+fn health_report_in_romanian() {
+    let mut w = World::new();
+    let before = w.reg.clone();
+    let (exit, out) = w.ro(Cmd::Health { json: false });
+    assert_eq!(exit, Exit::Ok, "{out}");
+    for expected in [
+        "Hardware detectat",
+        "Windows 11 Pro 24H2 (build 26100), laptop",
+        "Procesor: 12th Gen Intel(R) Core(TM) i5-1245U (10 nuclee, 12 fire)",
+        "Memorie: 16 GB, 2 module la 3200 MHz",
+        "Placă video: Intel(R) Iris(R) Xe Graphics (integrată), driver 32.0.101.7088 din 2026-06-17",
+        "Monitor: Built-in display — 1920×1200 la 60 Hz",
+        "Disc: SAMSUNG MZAL4512HBLU-00BL2 — SSD NVMe, 476 GB",
+        "Alimentare: plan „Balanced”, pe baterie",
+        "Jocuri găsite: niciunul",
+        "[Atenție] Laptop pe baterie",
+        "Cum rezolvi: Pentru jocuri, ține laptopul la priză.",
+        "[Info] Securitate bazată pe virtualizare",
+        "VBS e activ (Memory Integrity: activ)",
+        "OK (",
+    ] {
+        assert!(out.contains(expected), "missing `{expected}` in:\n{out}");
+    }
+    assert!(!out.contains("[Problemă]"), "{out}");
+    // Warnings come before infos.
+    assert!(out.find("[Atenție]").unwrap() < out.find("[Info]").unwrap());
+    // Read-only.
+    assert!(w.reg.same_contents(&before));
+    assert!(w.journal.sessions().unwrap().is_empty());
+}
+
+#[test]
+fn health_json_export() {
+    let mut w = World::new();
+    let (exit, out) = w.run(Lang::En, Cmd::Health { json: true });
+    assert_eq!(exit, Exit::Ok);
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["hardware"]["cpu"]["cores"], 10);
+    let findings = v["findings"].as_array().unwrap();
+    assert!(findings
+        .iter()
+        .any(|f| f["check"] == "on_battery" && f["outcome"] == "warning"));
+}
+
+#[test]
+fn health_without_detection_is_an_error() {
+    let texts = Texts::load(Lang::En).unwrap();
+    let mut w = World::new();
+    let mut env = Env {
+        registry: &mut w.reg,
+        services: &mut w.svc,
+        journal: &mut w.journal,
+        host: w.host.clone(),
+        running: vec![],
+        blocked: BlockedProcesses::builtin().unwrap(),
+        recipes: vec![],
+        hw: None,
+        today: 0,
+    };
+    let mut out = Vec::new();
+    assert_eq!(
+        run(&mut env, &texts, &Cmd::Health { json: false }, &mut out),
+        Exit::Error
+    );
+}
+
+#[test]
+fn health_arguments() {
+    assert_eq!(parse("pco health").unwrap(), Cmd::Health { json: false });
+    assert_eq!(
+        parse("pco health --json").unwrap(),
+        Cmd::Health { json: true }
     );
 }
 

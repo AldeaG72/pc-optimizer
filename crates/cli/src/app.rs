@@ -9,6 +9,7 @@ use pco_core::engine::{ApplyOutcome, Engine, RecipePlan, RecipeStatus, UndoOutco
 use pco_core::guard::{
     check_admin, check_host, check_no_games, Blocked, BlockedProcesses, Host, SystemInfo,
 };
+use pco_core::hw::HwInfo;
 use pco_core::journal::{Journal, SessionKind, Status};
 use pco_core::recipe::{Recipe, RequiresRestart};
 
@@ -26,6 +27,10 @@ pub struct Env<'a> {
     pub running: Vec<String>,
     pub blocked: BlockedProcesses,
     pub recipes: Vec<Recipe>,
+    /// Hardware snapshot; only read for `pco health` (detection takes about a second).
+    pub hw: Option<HwInfo>,
+    /// Today, in days since 1970-01-01 (for the driver's age).
+    pub today: i64,
 }
 
 impl Env<'_> {
@@ -112,7 +117,24 @@ fn run_inner(env: &mut Env<'_>, t: &Texts, cmd: &Cmd, out: &mut dyn Write) -> Re
         } => apply(env, t, ids, out),
         Cmd::Undo { ids, all } => undo(env, t, ids, *all, out),
         Cmd::Status => status(env, t, out),
+        Cmd::Health { json } => health(env, t, *json, out),
     }
+}
+
+/// Read-only: shows the hardware and the health check results.
+fn health(env: &mut Env<'_>, t: &Texts, json: bool, out: &mut dyn Write) -> Result<Exit> {
+    let Some(info) = env.hw.as_ref() else {
+        writeln!(out, "{}", t.t("health.not_available"))?;
+        return Ok(Exit::Error);
+    };
+    let findings = pco_core::health::run(info, env.today);
+    if json {
+        let value = serde_json::json!({ "hardware": info, "findings": findings });
+        writeln!(out, "{}", serde_json::to_string_pretty(&value)?)?;
+    } else {
+        crate::health::report(t, info, &findings, out)?;
+    }
+    Ok(Exit::Ok)
 }
 
 enum Recovery {

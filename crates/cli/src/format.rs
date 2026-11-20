@@ -120,7 +120,7 @@ pub fn recipe_status(t: &Texts, s: &RecipeStatus) -> String {
     }
 }
 
-fn edition(e: Edition) -> &'static str {
+pub fn edition(e: Edition) -> &'static str {
     match e {
         Edition::Home => "Home",
         Edition::Pro => "Pro",

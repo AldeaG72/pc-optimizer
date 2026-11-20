@@ -22,6 +22,18 @@ pub enum Outcome {
     Ok,
 }
 
+impl Outcome {
+    pub fn key(self) -> &'static str {
+        match self {
+            Outcome::Problem => "problem",
+            Outcome::Warning => "warning",
+            Outcome::Info => "info",
+            Outcome::Unknown => "unknown",
+            Outcome::Ok => "ok",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CheckId {
@@ -46,6 +58,49 @@ pub enum CheckId {
 }
 
 impl CheckId {
+    pub const ALL: [CheckId; 18] = [
+        CheckId::RamSpeed,
+        CheckId::RamChannels,
+        CheckId::DisplayRefresh,
+        CheckId::DisplayResolution,
+        CheckId::Hdr,
+        CheckId::AutoHdr,
+        CheckId::GpuDriver,
+        CheckId::Vbs,
+        CheckId::PowerPlan,
+        CheckId::OnBattery,
+        CheckId::GameGpu,
+        CheckId::GameDisk,
+        CheckId::Trim,
+        CheckId::DiskHealth,
+        CheckId::FreeSpace,
+        CheckId::OtherOptimizers,
+        CheckId::Overlays,
+        CheckId::Managed,
+    ];
+
+    /// The outcomes this check can report besides OK and Unknown (each needs a message).
+    pub fn reported_outcomes(self) -> &'static [Outcome] {
+        use Outcome::{Info, Problem, Warning};
+        match self {
+            CheckId::RamSpeed => &[Warning, Info],
+            CheckId::RamChannels | CheckId::PowerPlan => &[Problem, Warning],
+            CheckId::DisplayRefresh | CheckId::Trim | CheckId::DiskHealth => &[Problem],
+            CheckId::DisplayResolution
+            | CheckId::GpuDriver
+            | CheckId::OnBattery
+            | CheckId::GameDisk
+            | CheckId::FreeSpace
+            | CheckId::OtherOptimizers => &[Warning],
+            CheckId::Hdr
+            | CheckId::AutoHdr
+            | CheckId::Vbs
+            | CheckId::Overlays
+            | CheckId::Managed => &[Info],
+            CheckId::GameGpu => &[Problem, Info],
+        }
+    }
+
     /// Key used in the translation files (`health.<key>.…`).
     pub fn key(self) -> &'static str {
         match self {

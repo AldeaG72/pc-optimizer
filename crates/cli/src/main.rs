@@ -65,6 +65,14 @@ mod real {
         .map_err(|e| e.to_string())
     }
 
+    /// Days since 1970-01-01 (UTC).
+    fn today() -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| i64::try_from(d.as_secs() / 86_400).unwrap_or(0))
+            .unwrap_or(0)
+    }
+
     fn fail(t: &Texts, details: &dyn std::fmt::Display) -> ExitCode {
         eprintln!("{}", t.f("error.generic", &[("details", details)]));
         ExitCode::from(Exit::Error as u8)
@@ -116,6 +124,8 @@ mod real {
             running,
             blocked,
             recipes,
+            hw: matches!(cmd, Cmd::Health { .. }).then(pco_core::hw::windows::detect),
+            today: today(),
         };
         let mut out = std::io::stdout().lock();
         ExitCode::from(app::run(&mut env, t, cmd, &mut out) as u8)

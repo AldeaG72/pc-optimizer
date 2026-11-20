@@ -14,6 +14,7 @@ pub enum Cmd {
     Apply { ids: Vec<String>, dry_run: bool },
     Undo { ids: Vec<String>, all: bool },
     Status,
+    Health { json: bool },
 }
 
 impl Cmd {
@@ -93,6 +94,16 @@ pub fn command(texts: &Texts) -> Command {
                 .group(ArgGroup::new("what").args(["ids", "all"]).required(true)),
         )
         .subcommand(Command::new("status").about(texts.t("help.status").to_owned()))
+        .subcommand(
+            Command::new("health")
+                .about(texts.t("help.health").to_owned())
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(ArgAction::SetTrue)
+                        .help(texts.t("help.json").to_owned()),
+                ),
+        )
 }
 
 fn ids(m: &ArgMatches) -> Vec<String> {
@@ -114,6 +125,9 @@ pub fn parse(args: Vec<OsString>, texts: &Texts) -> Result<Cmd, clap::Error> {
             all: m.get_flag("all"),
         },
         Some(("status", _)) => Cmd::Status,
+        Some(("health", m)) => Cmd::Health {
+            json: m.get_flag("json"),
+        },
         // `list`, and nothing else is possible because a subcommand is required.
         _ => Cmd::List,
     })
