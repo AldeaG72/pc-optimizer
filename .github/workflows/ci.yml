@@ -1,0 +1,75 @@
+# Stage 0 CI (ETAPA-0, task 0.11).
+# - fmt, clippy and the normal tests on Linux and Windows;
+# - `real-recipes`: every recipe applied and undone on a real, throwaway Windows runner.
+#   This is the only place real tweaks run (CLAUDE.md, safety rule 1).
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  fmt:
+    name: cargo fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install stable --profile minimal --component rustfmt
+      - run: cargo fmt --all --check
+
+  test:
+    name: clippy + tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install stable --profile minimal --component clippy
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  real-recipes:
+    name: real recipes on Windows 11-level build (apply → undo)
+    needs: test
+    # Windows Server 2025 = build 26100, the same kernel as Windows 11 24H2.
+    runs-on: windows-2025
+    env:
+      PCO_CI_REAL_TWEAKS: "1"
+      PCO_CI_TEST_SERVICE: PcoCiTestSvc
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install stable --profile minimal
+
+      - name: Create a throwaway service for the service tests
+        shell: pwsh
+        run: |
+          sc.exe create PcoCiTestSvc binPath= "C:\Windows\System32\svchost.exe -k PcoCiTestSvc" start= demand
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Apply and undo every recipe for real
+        run: cargo test -p pco-core --test real_recipes -- --ignored --test-threads=1 --nocapture
+
+      - name: Smoke-test the pco binary
+        shell: pwsh
+        run: |
+          $env:PCO_DATA_DIR = Join-Path $env:RUNNER_TEMP 'pco'
+          cargo run -q -p pco-cli -- --lang en list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo run -q -p pco-cli -- --lang ro status
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Remove the throwaway service
+        if: always()
+        shell: pwsh
+        run: sc.exe delete PcoCiTestSvc
