@@ -33,6 +33,9 @@ Asta e funcția pe care proprietarul a ales-o ca „de făcut perfect prima”.
 1. Toate rețetele inițiale trec în CI apply → undo fără nicio diferență în registru.
 2. Testul „întrerupere la mijloc” lasă sistemul exact ca înainte după repornirea `pco`.
 3. Proprietarul a rulat `pco list`, `pco plan`, `pco apply`, `pco undo` în mașina virtuală, urmând `docs/TESTARE-ETAPA-0.md`, fără erori.
+   *(Decizia proprietarului, 2026-11-20: înlocuit cu rularea automată a testelor A–D (`scripts/vm-test.ps1`) pe Windows
+   de unică folosință în GitHub Actions — 20 de verificări OK, 0 picate. Verificarea cu ochii (B4) și testul fără
+   admin (D2) nu au fost făcute de un om; D2 e acoperit de testele automate.)*
 4. `cargo clippy` și `cargo test` curate.
 
 ## În afara Etapei 0
