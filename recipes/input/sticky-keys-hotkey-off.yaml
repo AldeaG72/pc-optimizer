@@ -1,0 +1,35 @@
+id: input.sticky-keys-hotkey-off
+version: 1
+name:
+  ro: Scurtătura Sticky Keys oprită
+  en: Sticky Keys shortcut off
+description:
+  ro: Shift apăsat de 5 ori nu mai deschide fereastra Sticky Keys în timpul jocului.
+  en: Pressing Shift 5 times no longer opens the Sticky Keys dialog while gaming.
+category: input
+risk: safe
+profiles: [recommended, laptop]
+impact:
+  ro: Confort, fără efect pe FPS
+  en: Comfort, no FPS effect
+why:
+  ro: Fereastra Sticky Keys poate scoate jocul din fullscreen în mijlocul unei runde.
+  en: The Sticky Keys dialog can pull the game out of fullscreen mid-round.
+breaks:
+  ro: Nimic; Sticky Keys rămâne disponibil din Setări › Accesibilitate.
+  en: Nothing; Sticky Keys stays available in Settings › Accessibility.
+requires_restart: signout
+platform:
+  min_build: 22000
+sources:
+  - https://learn.microsoft.com/windows/win32/api/winuser/ns-winuser-stickykeys
+verified: false
+# ATENȚIE: Flags e REG_SZ (text). 506 = 510 fără bitul SKF_HOTKEYACTIVE. De verificat bit cu bit
+# și, ideal, de aplicat prin SystemParametersInfo(SPI_SETSTICKYKEYS) într-o versiune viitoare.
+actions:
+  - type: registry
+    hive: HKCU
+    key: Control Panel\Accessibility\StickyKeys
+    value: Flags
+    kind: string
+    set: "506"

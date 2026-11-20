@@ -1,0 +1,33 @@
+id: privacy.advertising-id-off
+version: 1
+name:
+  ro: ID de publicitate oprit
+  en: Advertising ID off
+description:
+  ro: Aplicațiile nu mai primesc un identificator pentru reclame personalizate.
+  en: Apps no longer get an identifier for personalized ads.
+category: privacy
+risk: safe
+profiles: [recommended, laptop]
+impact:
+  ro: Confidențialitate, fără efect pe FPS
+  en: Privacy, no FPS effect
+why:
+  ro: Reduce urmărirea între aplicații pentru reclame.
+  en: Reduces cross-app ad tracking.
+breaks:
+  ro: Reclamele din aplicații devin generice.
+  en: In-app ads become generic.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  - https://support.microsoft.com/windows/general-privacy-settings-in-windows
+verified: false
+actions:
+  - type: registry
+    hive: HKCU
+    key: Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo
+    value: Enabled
+    kind: dword
+    set: 0

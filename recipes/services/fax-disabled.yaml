@@ -1,0 +1,30 @@
+id: services.fax-disabled
+version: 1
+name:
+  ro: Serviciul Fax oprit
+  en: Fax service disabled
+description:
+  ro: Serviciul de fax nu mai pornește. Pe multe PC-uri nici nu e instalat.
+  en: The Fax service no longer starts. Many PCs don't have it installed.
+category: services
+risk: safe
+profiles: [recommended, laptop]
+impact:
+  ro: Foarte mic
+  en: Very low
+why:
+  ro: Rețetă de test pentru acțiunile de tip serviciu și pentru cazul „nu se aplică pe acest PC”.
+  en: Test recipe for service actions and the “not applicable on this PC” case.
+breaks:
+  ro: Trimiterea de faxuri din Windows.
+  en: Sending faxes from Windows.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  - https://learn.microsoft.com/windows-server/security/windows-services/security-guidelines-for-disabling-system-services-in-windows-server
+verified: false
+actions:
+  - type: service
+    name: Fax
+    startup: disabled

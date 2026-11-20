@@ -1,0 +1,33 @@
+id: gaming.game-mode-on
+version: 1
+name:
+  ro: Game Mode activ
+  en: Game Mode on
+description:
+  ro: Windows prioritizează jocul pornit.
+  en: Windows prioritizes the running game.
+category: gaming
+risk: safe
+profiles: [recommended, laptop]
+impact:
+  ro: Mic
+  en: Low
+why:
+  ro: Game Mode reduce activitatea din fundal (update-uri, notificări) cât timp rulează un joc.
+  en: Game Mode reduces background activity (updates, notifications) while a game is running.
+breaks:
+  ro: Nimic cunoscut.
+  en: Nothing known.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  - https://support.microsoft.com/windows/use-game-mode-while-gaming-on-your-windows-pc
+verified: false
+actions:
+  - type: registry
+    hive: HKCU
+    key: Software\Microsoft\GameBar
+    value: AutoGameModeEnabled
+    kind: dword
+    set: 1

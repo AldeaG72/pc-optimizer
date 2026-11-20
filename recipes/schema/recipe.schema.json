@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/OWNER/REPO/recipes/schema/recipe.schema.json",
+  "title": "Recipe",
+  "description": "O rețetă = un tweak documentat și reversibil.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "name", "description", "category", "risk", "profiles", "impact", "why", "breaks", "requires_restart", "platform", "sources", "verified", "actions"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$" },
+    "version": { "type": "integer", "minimum": 1 },
+    "name": { "$ref": "#/$defs/i18n" },
+    "description": { "$ref": "#/$defs/i18n" },
+    "category": { "enum": ["windows", "gaming", "power", "input", "network", "audio", "debloat", "privacy", "cleanup", "gpu-nvidia", "gpu-amd", "services", "advanced"] },
+    "risk": { "enum": ["safe", "moderate", "advanced"] },
+    "profiles": { "type": "array", "items": { "enum": ["recommended", "laptop"] }, "uniqueItems": true },
+    "impact": { "$ref": "#/$defs/i18n" },
+    "why": { "$ref": "#/$defs/i18n" },
+    "breaks": { "$ref": "#/$defs/i18n" },
+    "requires_restart": { "enum": ["none", "explorer", "signout", "reboot"] },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min_build"],
+      "properties": {
+        "min_build": { "type": "integer", "minimum": 22000 },
+        "max_build": { "type": "integer" },
+        "editions": { "type": "array", "items": { "enum": ["home", "pro", "enterprise", "education"] } },
+        "form_factor": { "enum": ["any", "desktop", "laptop"], "default": "any" }
+      }
+    },
+    "sources": { "type": "array", "minItems": 1, "items": { "type": "string", "format": "uri" } },
+    "verified": { "type": "boolean", "description": "false până când cheile au fost verificate în documentație și testate în CI" },
+    "actions": { "type": "array", "minItems": 1, "items": { "oneOf": [ { "$ref": "#/$defs/registry" }, { "$ref": "#/$defs/service" } ] } }
+  },
+  "$defs": {
+    "i18n": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ro", "en"],
+      "properties": { "ro": { "type": "string", "minLength": 1 }, "en": { "type": "string", "minLength": 1 } }
+    },
+    "registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "hive", "key", "value"],
+      "properties": {
+        "type": { "const": "registry" },
+        "hive": { "enum": ["HKCU", "HKLM"] },
+        "key": { "type": "string", "minLength": 1 },
+        "value": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["dword", "qword", "string"] },
+        "set": { "type": ["integer", "string"] },
+        "delete": { "const": true }
+      },
+      "oneOf": [
+        { "required": ["kind", "set"], "not": { "required": ["delete"] } },
+        { "required": ["delete"], "not": { "anyOf": [ { "required": ["set"] }, { "required": ["kind"] } ] } }
+      ]
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "name", "startup"],
+      "properties": {
+        "type": { "const": "service" },
+        "name": { "type": "string", "minLength": 1 },
+        "startup": { "enum": ["automatic", "manual", "disabled"] }
+      }
+    }
+  }
+}

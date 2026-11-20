@@ -1,0 +1,39 @@
+id: gaming.game-dvr-off
+version: 1
+name:
+  ro: Captură în fundal (Game DVR) oprită
+  en: Background capture (Game DVR) off
+description:
+  ro: Oprește înregistrarea video automată din Xbox Game Bar.
+  en: Turns off automatic background recording in Xbox Game Bar.
+category: gaming
+risk: safe
+profiles: [recommended, laptop]
+impact:
+  ro: Mediu pe plăci video slabe, mic pe cele puternice
+  en: Medium on weak GPUs, low on strong ones
+why:
+  ro: Înregistrarea în fundal consumă resurse de GPU și CPU chiar dacă nu o folosești niciodată.
+  en: Background recording uses GPU and CPU resources even if you never use it.
+breaks:
+  ro: Captura video cu Win+Alt+R nu mai funcționează.
+  en: Video capture with Win+Alt+R stops working.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  - https://support.microsoft.com/windows/record-a-game-clip-on-your-pc-with-xbox-game-bar
+verified: false
+actions:
+  - type: registry
+    hive: HKCU
+    key: System\GameConfigStore
+    value: GameDVR_Enabled
+    kind: dword
+    set: 0
+  - type: registry
+    hive: HKCU
+    key: Software\Microsoft\Windows\CurrentVersion\GameDVR
+    value: AppCaptureEnabled
+    kind: dword
+    set: 0

@@ -1,0 +1,34 @@
+id: windows.taskbar-end-task
+version: 1
+name:
+  ro: „End Task” la click dreapta pe taskbar
+  en: “End Task” on taskbar right-click
+description:
+  ro: Închizi un joc blocat direct din taskbar, fără Task Manager.
+  en: Close a frozen game straight from the taskbar, without Task Manager.
+category: windows
+risk: safe
+profiles: [recommended, laptop]
+impact:
+  ro: Confort, fără efect pe FPS
+  en: Comfort, no FPS effect
+why:
+  ro: Un joc blocat în fullscreen se închide mai repede.
+  en: A game frozen in fullscreen closes faster.
+breaks:
+  ro: Nimic cunoscut.
+  en: Nothing known.
+requires_restart: explorer
+platform:
+  min_build: 22631
+sources:
+  - https://learn.microsoft.com/windows/apps/develop/dev-home/
+verified: false
+# De verificat: cheia și build-ul minim (Windows 11 23H2). Sursa de mai sus e un placeholder; înlocuiește-o cu documentația exactă.
+actions:
+  - type: registry
+    hive: HKCU
+    key: Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDeveloperSettings
+    value: TaskbarEndTask
+    kind: dword
+    set: 1
