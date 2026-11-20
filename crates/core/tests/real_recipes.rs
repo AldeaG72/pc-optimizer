@@ -30,6 +30,21 @@ fn require_ci() {
     );
 }
 
+/// Appends a line to the run's public summary page (GitHub's `GITHUB_STEP_SUMMARY`), and to
+/// the log.
+fn summary(line: &str) {
+    println!("{line}");
+    if let Some(path) = std::env::var_os("GITHUB_STEP_SUMMARY") {
+        use std::io::Write;
+        let mut f = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .unwrap();
+        writeln!(f, "{line}").unwrap();
+    }
+}
+
 fn journal(name: &str) -> Journal {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
         .join("real-recipes")
@@ -105,8 +120,11 @@ fn unseed(reg: &mut WindowsRegistry, seeded: Vec<(Hive, String, String, RegRead)
 fn every_recipe_applies_and_undoes_exactly_on_real_windows() {
     require_ci();
     let host = guard::windows::host().unwrap();
-    println!("runner: {host:?}");
     assert!(host.elevated, "the CI job must run as administrator");
+    summary(&format!(
+        "### Real recipes: apply → undo\n\nRunner: build {}, {}, edition {:?}\n\n| Recipe | Result |\n| --- | --- |",
+        host.build, host.arch, host.edition
+    ));
     let system = SystemInfo::from(&host);
 
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../recipes");
@@ -127,7 +145,7 @@ fn every_recipe_applies_and_undoes_exactly_on_real_windows() {
             .results
             .remove(0)
             .1;
-        let summary = match outcome {
+        let result = match outcome {
             ApplyOutcome::Applied { changed } => {
                 applied += 1;
                 let mut engine = Engine::new(&mut reg, &mut svc, &mut journal, system);
@@ -164,7 +182,7 @@ fn every_recipe_applies_and_undoes_exactly_on_real_windows() {
             "{}: runner not restored",
             r.id
         );
-        println!("{:<32} {summary}", r.id);
+        summary(&format!("| `{}` | {result} |", r.id));
     }
     assert!(applied > 0, "no recipe was actually applied on the runner");
     assert!(journal.pending_sessions().unwrap().is_empty());
@@ -198,6 +216,7 @@ fn service_changes_round_trip_on_a_throwaway_service() {
     }
     svc.set(&name, original).unwrap();
     assert_eq!(svc.query(&name).unwrap(), Some(original));
+    summary("\n### Service backend\n\nThrowaway service: disabled / automatic (delayed) / automatic / manual, then restored: OK");
 
     // The same through the engine, with a recipe for that service.
     let text = format!(

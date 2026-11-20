@@ -22,7 +22,7 @@ jobs:
     name: cargo fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: rustup toolchain install stable --profile minimal --component rustfmt
       - run: cargo fmt --all --check
 
@@ -34,7 +34,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: rustup toolchain install stable --profile minimal --component clippy
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
@@ -48,7 +48,7 @@ jobs:
       PCO_CI_REAL_TWEAKS: "1"
       PCO_CI_TEST_SERVICE: PcoCiTestSvc
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: rustup toolchain install stable --profile minimal
 
       - name: Create a throwaway service for the service tests
