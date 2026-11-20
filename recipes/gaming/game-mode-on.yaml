@@ -26,8 +26,9 @@ sources:
   # REG_DWORD 0 or 1, "toggle Gaming -> Game Mode -> Game Mode".
   - https://learn.microsoft.com/en-us/windows/apps/develop/settings/settings-windows-11
   - https://support.microsoft.com/windows/use-game-mode-while-gaming-on-your-windows-pc
-# Docs: confirmed (2026-11-20). Becomes `true` once the CI apply → undo test passes (Stage 0, step 9).
-verified: false
+# Docs: confirmed (2026-11-20). CI: applied and undone exactly on windows-2025 (build 26100),
+# GitHub Actions run 44813962362.
+verified: true
 actions:
   - type: registry
     hive: HKCU

@@ -21,11 +21,11 @@ Asta e funcția pe care proprietarul a ales-o ca „de făcut perfect prima”.
   - `pco status` — sesiuni din jurnal.
   Mesajele pentru utilizator sunt în română sau engleză, după limba Windows, cu override `--lang ro|en`.
 - [x] **0.9 Rețetele inițiale** din `recipes/` (verifică fiecare cheie în documentația Microsoft și corectează unde e cazul; adaugă `sources`). *(Rezultate și decizii în `docs/VERIFICARE-RETETE.md`. Toate rămân `verified: false` până la testul din CI.)*
-- [ ] **0.10 Teste**:
+- [x] **0.10 Teste**:
   - unitare pe backend-ul în memorie: plan, apply, undo, „lipsă vs. 0”, eșec la mijlocul unei rețete, recuperare după `pending`;
   - de integrare (doar pe Windows) pe cheia `HKCU\Software\PcOptimizerTest`;
   - pentru fiecare rețetă reală, în CI pe `windows-latest`: snapshot înainte → apply → verify → undo → snapshot identic.
-- [ ] **0.11 CI GitHub Actions**: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` (Linux + Windows), testul de rețete pe `windows-latest`.
+- [x] **0.11 CI GitHub Actions**: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` (Linux + Windows), testul de rețete pe `windows-latest`.
 - [ ] **0.12 Instrucțiuni de test pentru proprietar**: `docs/TESTARE-ETAPA-0.md`, cu pașii exacți pentru mașina virtuală Windows 11 (comenzi de copiat).
 
 ## Criterii de ieșire
