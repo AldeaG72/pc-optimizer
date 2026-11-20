@@ -19,7 +19,7 @@ use pco_core::backend::{
 use pco_core::engine::{ApplyOutcome, Engine, NotApplicable, RecipeStatus, UndoOutcome};
 use pco_core::guard::{self, SystemInfo};
 use pco_core::journal::Journal;
-use pco_core::recipe::{self, Action, Hive, Recipe};
+use pco_core::recipe::{self, Action, Hive, Recipe, RegValue, RegistryOp};
 
 fn require_ci() {
     let on_github = std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true");
@@ -79,9 +79,13 @@ fn fingerprint(reg: &WindowsRegistry, svc: &WindowsServices, r: &Recipe) -> Vec<
     out
 }
 
-/// For `only_if` actions whose value differs on the runner: put the expected value in place
-/// so the cycle is exercised, and return what to put back afterwards.
-fn seed_preconditions(
+/// Makes sure every registry action really has something to change on the runner, so the
+/// whole apply → undo path runs even where the runner already has the target value:
+/// - `only_if` actions get their expected value;
+/// - values already at the target are removed for the duration of the test.
+///
+/// Returns what to put back afterwards.
+fn seed_starting_state(
     reg: &mut WindowsRegistry,
     r: &Recipe,
 ) -> Vec<(Hive, String, String, RegRead)> {
@@ -90,12 +94,25 @@ fn seed_preconditions(
         let Action::Registry(a) = action else {
             continue;
         };
-        let Some(expected) = &a.only_if else { continue };
+        let RegistryOp::Set(target) = &a.op else {
+            continue;
+        };
         let original = reg.read(a.hive, &a.key, &a.value).unwrap();
-        let holds = matches!(&original, RegRead::Present(d) if d.matches(expected));
-        if !holds {
-            reg.write(a.hive, &a.key, &a.value, &RegData::from_value(expected))
-                .unwrap();
+        let has = |v: &RegValue| matches!(&original, RegRead::Present(d) if d.matches(v));
+        let changed = match &a.only_if {
+            Some(expected) if !has(expected) => {
+                reg.write(a.hive, &a.key, &a.value, &RegData::from_value(expected))
+                    .unwrap();
+                true
+            }
+            Some(_) => false,
+            None if has(target) => {
+                reg.delete_value(a.hive, &a.key, &a.value).unwrap();
+                true
+            }
+            None => false,
+        };
+        if changed {
             seeded.push((a.hive, a.key.clone(), a.value.clone(), original));
         }
     }
@@ -136,7 +153,7 @@ fn every_recipe_applies_and_undoes_exactly_on_real_windows() {
 
     for r in &recipes {
         let original = fingerprint(&reg, &svc, r);
-        let seeded = seed_preconditions(&mut reg, r);
+        let seeded = seed_starting_state(&mut reg, r);
         let before = fingerprint(&reg, &svc, r);
 
         let outcome = Engine::new(&mut reg, &mut svc, &mut journal, system)
@@ -169,7 +186,7 @@ fn every_recipe_applies_and_undoes_exactly_on_real_windows() {
                 );
                 format!("applied ({changed} changes) and undone exactly")
             }
-            ApplyOutcome::AlreadyApplied => "already in place on the runner".to_owned(),
+            // Anything else (including "already applied", impossible after seeding) fails.
             ApplyOutcome::NotApplicable(NotApplicable::ServiceMissing { name }) => {
                 format!("not applicable: service {name} is not installed")
             }
@@ -184,7 +201,15 @@ fn every_recipe_applies_and_undoes_exactly_on_real_windows() {
         );
         summary(&format!("| `{}` | {result} |", r.id));
     }
-    assert!(applied > 0, "no recipe was actually applied on the runner");
+    // Every registry-only recipe must have gone through the whole cycle.
+    let registry_only = recipes
+        .iter()
+        .filter(|r| r.actions.iter().all(|a| matches!(a, Action::Registry(_))))
+        .count();
+    assert!(
+        applied >= registry_only,
+        "only {applied} of {registry_only} registry recipes were applied"
+    );
     assert!(journal.pending_sessions().unwrap().is_empty());
     assert!(journal.applied_recipe_ids().unwrap().is_empty());
 }
