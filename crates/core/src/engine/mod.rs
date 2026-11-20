@@ -20,6 +20,7 @@ pub use snapshot::Snapshot;
 use crate::backend::{
     BackendError, RegData, RegRead, RegistryBackend, ServiceBackend, ServiceStart, ServiceState,
 };
+use crate::guard::{platform_mismatch, PlatformMismatch, SystemInfo};
 use crate::journal::{EntryId, Journal, JournalError, NewEntry, SessionId, SessionKind, Status};
 use crate::recipe::{Action, Hive, Recipe, RegistryOp, ServiceStartup};
 
@@ -71,7 +72,11 @@ impl From<BackendError> for ActionError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NotApplicable {
-    ServiceMissing { name: String },
+    ServiceMissing {
+        name: String,
+    },
+    /// The recipe's `platform` block excludes this PC.
+    Platform(PlatformMismatch),
 }
 
 /// Where a recipe stands on this PC.
@@ -162,23 +167,60 @@ pub struct Engine<'a> {
     registry: &'a mut dyn RegistryBackend,
     services: &'a mut dyn ServiceBackend,
     journal: &'a mut Journal,
+    system: SystemInfo,
 }
 
 impl<'a> Engine<'a> {
+    /// `system` is compared with each recipe's `platform` block.
     pub fn new(
         registry: &'a mut dyn RegistryBackend,
         services: &'a mut dyn ServiceBackend,
         journal: &'a mut Journal,
+        system: SystemInfo,
     ) -> Self {
         Self {
             registry,
             services,
             journal,
+            system,
         }
+    }
+
+    /// Whether undoing these recipes touches HKLM or services.
+    pub fn undo_needs_admin(&self, recipe_ids: &[&str]) -> Result<bool, EngineError> {
+        for id in recipe_ids {
+            for entry in self.journal.applied_entries(id)? {
+                if entry.previous::<Snapshot>()?.needs_admin() {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
+    }
+
+    /// Whether `recover` will touch HKLM or services.
+    pub fn recovery_needs_admin(&self) -> Result<bool, EngineError> {
+        for session in self.journal.pending_sessions()? {
+            for entry in self.journal.entries(session.id)? {
+                if matches!(entry.status, Status::Pending | Status::Applied)
+                    && entry.previous::<Snapshot>()?.needs_admin()
+                {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
     }
 
     /// Current → desired state for every action, without changing anything.
     pub fn plan(&self, recipe: &Recipe) -> Result<RecipePlan, EngineError> {
+        if let Some(mismatch) = platform_mismatch(&recipe.platform, &self.system) {
+            return Ok(RecipePlan {
+                recipe_id: recipe.id.clone(),
+                status: RecipeStatus::NotApplicable(NotApplicable::Platform(mismatch)),
+                actions: Vec::new(),
+            });
+        }
         let mut actions = Vec::new();
         for (index, action) in recipe.actions.iter().enumerate() {
             let current = match self.capture(action)? {

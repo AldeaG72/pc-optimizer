@@ -11,11 +11,19 @@ use pco_core::backend::{
 use pco_core::engine::{
     ApplyOutcome, Engine, EngineError, NotApplicable, RecipeStatus, UndoOutcome,
 };
+use pco_core::guard::{PlatformMismatch, SystemInfo};
 use pco_core::journal::{Journal, SessionKind, Status};
-use pco_core::recipe::{self, Hive, Recipe, RegValue};
+use pco_core::recipe::{self, Edition, Hive, Recipe, RegValue};
 
 const HKCU: Hive = Hive::CurrentUser;
 const KEY: &str = r"Software\PcOptimizerTest\Engine";
+
+/// Windows 11 24H2 Pro; form factor unknown (not detected before Stage 1).
+const SYS: SystemInfo = SystemInfo {
+    build: 26100,
+    edition: Some(Edition::Pro),
+    form_factor: None,
+};
 
 fn dword(v: u32) -> RegData {
     RegData::from_value(&RegValue::Dword(v))
@@ -62,7 +70,7 @@ impl World {
     }
 
     fn engine(&mut self) -> Engine<'_> {
-        Engine::new(&mut self.reg, &mut self.svc, &mut self.journal)
+        Engine::new(&mut self.reg, &mut self.svc, &mut self.journal, SYS)
     }
 }
 
@@ -323,7 +331,7 @@ fn read_back_mismatch_fails_and_rolls_back() {
     let mut journal = Journal::open_in_memory().unwrap();
     let r = recipe("test.lie", &reg_action(KEY, "A", 1));
 
-    let report = Engine::new(&mut reg, &mut svc, &mut journal)
+    let report = Engine::new(&mut reg, &mut svc, &mut journal, SYS)
         .apply(&[&r])
         .unwrap();
     match &report.results[0].1 {
@@ -393,6 +401,57 @@ fn missing_service_makes_the_recipe_not_applicable() {
     assert_eq!(w.reg.read(HKCU, KEY, "A").unwrap(), RegRead::KeyMissing);
 }
 
+#[test]
+fn platform_limits_make_a_recipe_not_applicable() {
+    let mut w = World::new(MemoryRegistry::new());
+    let mut r = recipe("test.newer", &reg_action(KEY, "A", 1));
+    r.platform.min_build = 26200;
+    let report = w.engine().apply(&[&r]).unwrap();
+    assert_eq!(
+        report.results[0].1,
+        ApplyOutcome::NotApplicable(NotApplicable::Platform(PlatformMismatch::BuildTooOld {
+            required: 26200,
+            current: 26100
+        }))
+    );
+    assert_eq!(report.session, None);
+    assert_eq!(w.reg.read(HKCU, KEY, "A").unwrap(), RegRead::KeyMissing);
+
+    let mut home_only = recipe("test.home", &reg_action(KEY, "A", 1));
+    home_only.platform.editions = vec![Edition::Home];
+    assert!(matches!(
+        w.engine().plan(&home_only).unwrap().status,
+        RecipeStatus::NotApplicable(NotApplicable::Platform(PlatformMismatch::Edition { .. }))
+    ));
+}
+
+#[test]
+fn admin_needs_are_known_before_undo_and_recovery() {
+    let mut w = World::new(MemoryRegistry::new());
+    w.svc = MemoryServices::new().with_service(
+        "Fax",
+        ServiceState {
+            start: ServiceStart::Manual,
+            delayed_auto_start: false,
+        },
+    );
+    let user = recipe("test.user", &reg_action(KEY, "A", 1));
+    let svc = recipe(
+        "test.svc",
+        "  - {type: service, name: Fax, startup: disabled}\n",
+    );
+    assert!(!user.needs_admin());
+    assert!(svc.needs_admin());
+
+    w.engine().apply(&[&user, &svc]).unwrap();
+    assert!(!w.engine().undo_needs_admin(&["test.user"]).unwrap());
+    assert!(w
+        .engine()
+        .undo_needs_admin(&["test.user", "test.svc"])
+        .unwrap());
+    assert!(!w.engine().recovery_needs_admin().unwrap());
+}
+
 /// Panics (like a crash) on the n-th write.
 struct CrashingRegistry {
     inner: MemoryRegistry,
@@ -442,7 +501,7 @@ fn interrupted_apply_is_undone_by_recovery() {
     let second = recipe("test.third", &reg_action(KEY, "C", 3)); // crashes here
 
     crash(|| {
-        let _ = Engine::new(&mut reg, &mut svc, &mut journal).apply(&[&first, &second]);
+        let _ = Engine::new(&mut reg, &mut svc, &mut journal, SYS).apply(&[&first, &second]);
     });
     assert!(
         !reg.inner.same_contents(&start),
@@ -451,7 +510,7 @@ fn interrupted_apply_is_undone_by_recovery() {
 
     // Nothing may run before recovery.
     reg.writes_left = usize::MAX;
-    let mut engine = Engine::new(&mut reg, &mut svc, &mut journal);
+    let mut engine = Engine::new(&mut reg, &mut svc, &mut journal, SYS);
     assert!(matches!(
         engine.apply(&[&first]),
         Err(EngineError::PendingRecovery { .. })
@@ -489,7 +548,7 @@ fn interrupted_undo_is_reverted_and_can_be_retried() {
     let mut svc = MemoryServices::new();
     let mut journal = Journal::open_in_memory().unwrap();
     let r = two_values();
-    Engine::new(&mut reg, &mut svc, &mut journal)
+    Engine::new(&mut reg, &mut svc, &mut journal, SYS)
         .apply(&[&r])
         .unwrap();
     let applied = reg.inner.clone();
@@ -497,11 +556,11 @@ fn interrupted_undo_is_reverted_and_can_be_retried() {
     // Undo restores B (a delete), then crashes writing A back to 5.
     reg.writes_left = 0;
     crash(|| {
-        let _ = Engine::new(&mut reg, &mut svc, &mut journal).undo(&["test.two-values"]);
+        let _ = Engine::new(&mut reg, &mut svc, &mut journal, SYS).undo(&["test.two-values"]);
     });
 
     reg.writes_left = usize::MAX;
-    let recovered = Engine::new(&mut reg, &mut svc, &mut journal)
+    let recovered = Engine::new(&mut reg, &mut svc, &mut journal, SYS)
         .recover()
         .unwrap();
     assert_eq!(recovered[0].kind, SessionKind::Undo);
@@ -511,7 +570,7 @@ fn interrupted_undo_is_reverted_and_can_be_retried() {
     );
     assert_eq!(journal.applied_recipe_ids().unwrap(), ["test.two-values"]);
 
-    Engine::new(&mut reg, &mut svc, &mut journal)
+    Engine::new(&mut reg, &mut svc, &mut journal, SYS)
         .undo(&["test.two-values"])
         .unwrap();
     assert!(reg.inner.same_contents(&start));

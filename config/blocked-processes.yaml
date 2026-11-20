@@ -1,0 +1,98 @@
+# Processes that block `pco apply` / `pco undo` while they run (CLAUDE.md, safety rule 6):
+# the user gets "Close the game first". Changing settings under a running anti-cheat could be
+# mistaken for cheating.
+#
+# - `name`: the executable as shown in Task Manager › Details. Matching ignores case.
+# - `verified: true` only when the exact name was confirmed in the public `source`.
+#   Unverified names stay in the list: an extra name can only block more often, never less.
+# - This file is built into the app; a copy next to the app can override it.
+
+processes:
+  # --- Anti-cheat -----------------------------------------------------------------
+  - name: vgc.exe
+    what: Riot Vanguard (VALORANT, League of Legends)
+    kind: anti-cheat
+    verified: true
+    source: https://support.riotgames.com/riot/security/security-software-and-malware-scan
+
+  - name: faceitclient.exe
+    what: FACEIT client and anti-cheat
+    kind: anti-cheat
+    verified: true
+    source: https://www.file.net/process/faceitclient.exe.html
+
+  - name: FACEIT.exe
+    what: FACEIT (name from the project plan; not found in any public source)
+    kind: anti-cheat
+    verified: false
+
+  - name: EasyAntiCheat.exe
+    what: Easy Anti-Cheat
+    kind: anti-cheat
+    verified: true
+    source: https://www.epicgames.com/help/epic-games-store-c-32735058/a15423034
+
+  - name: EasyAntiCheat_EOS.exe
+    what: Easy Anti-Cheat (Epic Online Services; Fortnite, Apex Legends)
+    kind: anti-cheat
+    verified: true
+    source: https://freefixer.com/library/file/easyanticheat_eos.exe-320689
+
+  - name: BEService.exe
+    what: BattlEye
+    kind: anti-cheat
+    verified: true
+    source: https://battleye.com/support/faq
+
+  - name: BEService_x64.exe
+    what: BattlEye
+    kind: anti-cheat
+    verified: true
+    source: https://battleye.com/support/faq
+
+  # --- Games ------------------------------------------------------------------------
+  - name: cs2.exe
+    what: Counter-Strike 2
+    kind: game
+    verified: false
+
+  - name: VALORANT-Win64-Shipping.exe
+    what: VALORANT
+    kind: game
+    verified: true
+    source: https://www.file.net/process/valorant-win64-shipping.exe.html
+
+  - name: FortniteClient-Win64-Shipping.exe
+    what: Fortnite
+    kind: game
+    verified: true
+    source: https://www.file.net/process/fortniteclient-win64-shipping.exe.html
+
+  - name: FortniteClient-Win64-Shipping_EAC_EOS.exe
+    what: Fortnite (anti-cheat launcher)
+    kind: game
+    verified: true
+    source: https://forums.unrealengine.com/t/unable-to-force-end-fortnite-using-task-manager/2680491
+
+  - name: r5apex.exe
+    what: Apex Legends (DirectX 11)
+    kind: game
+    verified: true
+    source: https://forums.ea.com/discussions/apex-legends-technical-issues-en/re-apex-legends-not-starting-in-dx12-mode/5730343
+
+  - name: r5apex_dx12.exe
+    what: Apex Legends (DirectX 12)
+    kind: game
+    verified: true
+    source: https://forums.ea.com/discussions/apex-legends-technical-issues-en/re-apex-legends-not-starting-in-dx12-mode/5730343
+
+  - name: League of Legends.exe
+    what: League of Legends
+    kind: game
+    verified: true
+    source: https://www.file.net/process/league%20of%20legends.exe.html
+
+  - name: dota2.exe
+    what: Dota 2
+    kind: game
+    verified: false

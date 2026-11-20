@@ -7,6 +7,7 @@
 
 pub mod backend;
 pub mod engine;
+pub mod guard;
 pub mod journal;
 pub mod recipe;
 

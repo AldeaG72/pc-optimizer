@@ -40,6 +40,14 @@ impl Snapshot {
         }
     }
 
+    /// Changing this target needs administrator rights (HKLM or a service).
+    pub fn needs_admin(&self) -> bool {
+        match self {
+            Snapshot::Registry { hive, .. } => hive.needs_admin(),
+            Snapshot::Service { .. } => true,
+        }
+    }
+
     pub fn kind(&self) -> EntryKind {
         match self {
             Snapshot::Registry { .. } => EntryKind::Registry,
