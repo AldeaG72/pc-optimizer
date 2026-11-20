@@ -21,6 +21,8 @@ use serde::Serialize;
 
 use migrations::MIGRATIONS;
 
+use crate::bench::{Label, Metrics, Series};
+
 #[derive(Debug, thiserror::Error)]
 pub enum JournalError {
     #[error("journal database error: {0}")]
@@ -481,6 +483,103 @@ impl Journal {
         ))?;
         let rows = stmt.query_map([], entry_from_row)?;
         rows.map(|r| r?).collect()
+    }
+
+    // -- benchmarks (Stage 2) -------------------------------------------------------------
+
+    /// Saves one run of a series (`series` = the series' start time in Unix ms).
+    pub fn record_benchmark(
+        &mut self,
+        series: i64,
+        target: &str,
+        label: Label,
+        m: &Metrics,
+    ) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO benchmarks (series, target, label, created_at, frames, seconds, avg_fps,
+                                     low1_fps, avg_frametime_ms, app_version)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                series,
+                target,
+                label.as_str(),
+                now_ms(),
+                i64::try_from(m.frames).unwrap_or(i64::MAX),
+                m.seconds,
+                m.avg_fps,
+                m.low1_fps,
+                m.avg_frametime_ms,
+                crate::VERSION,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Every series, newest first; only `target`'s if given.
+    pub fn benchmark_series(&self, target: Option<&str>) -> Result<Vec<Series>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT series, target, label, frames, seconds, avg_fps, low1_fps, avg_frametime_ms
+             FROM benchmarks WHERE (?1 IS NULL OR target = ?1) ORDER BY series DESC, id",
+        )?;
+        let rows = stmt.query_map([target], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                Metrics {
+                    frames: u64::try_from(r.get::<_, i64>(3)?).unwrap_or(0),
+                    seconds: r.get(4)?,
+                    avg_fps: r.get(5)?,
+                    low1_fps: r.get(6)?,
+                    avg_frametime_ms: r.get(7)?,
+                },
+            ))
+        })?;
+        let mut out: Vec<Series> = Vec::new();
+        for row in rows {
+            let (id, target, label, metrics) = row?;
+            let label = Label::parse(&label).ok_or(JournalError::Corrupt(label))?;
+            match out.last_mut() {
+                Some(s) if s.id == id && s.target == target && s.label == label => {
+                    s.runs.push(metrics)
+                }
+                _ => out.push(Series {
+                    id,
+                    target,
+                    label,
+                    runs: vec![metrics],
+                }),
+            }
+        }
+        Ok(out)
+    }
+
+    /// The newest series for `target` with `label`.
+    pub fn latest_series(&self, target: &str, label: Label) -> Result<Option<Series>> {
+        Ok(self
+            .benchmark_series(Some(target))?
+            .into_iter()
+            .find(|s| s.label == label))
+    }
+
+    /// Deletes benchmark results (all of them, or one target's). Returns how many runs.
+    pub fn forget_benchmarks(&mut self, target: Option<&str>) -> Result<usize> {
+        Ok(self.conn.execute(
+            "DELETE FROM benchmarks WHERE (?1 IS NULL OR target = ?1)",
+            [target],
+        )?)
+    }
+
+    /// Recipes changed by `apply` sessions started at or after `since_ms` and still in place:
+    /// what to undo when the benchmark shows a drop.
+    pub fn applied_recipe_ids_since(&self, since_ms: i64) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT DISTINCT recipe_id FROM entries WHERE status = 'applied'
+               AND session_id IN (SELECT id FROM sessions WHERE kind = 'apply' AND started_at >= ?1)
+             ORDER BY recipe_id",
+        )?;
+        let rows = stmt.query_map([since_ms], |r| r.get::<_, String>(0))?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
 
     /// Ids of every recipe with changes still in place, sorted.

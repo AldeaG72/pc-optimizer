@@ -41,11 +41,11 @@ fn reg_entry<'a>(
 fn creates_folder_and_schema_and_reopens() {
     let path = temp_db("reopen");
     let j = Journal::open(&path).unwrap();
-    assert_eq!(j.schema_version().unwrap(), 1);
+    assert_eq!(j.schema_version().unwrap(), 2);
     drop(j);
     assert!(path.exists());
     let j = Journal::open(&path).unwrap();
-    assert_eq!(j.schema_version().unwrap(), 1);
+    assert_eq!(j.schema_version().unwrap(), 2);
     assert!(j.sessions().unwrap().is_empty());
 }
 
@@ -291,7 +291,7 @@ fn journal_from_a_newer_version_is_not_touched() {
         Journal::open(&path),
         Err(JournalError::NewerSchema {
             found: 99,
-            supported: 1
+            supported: 2
         })
     ));
     assert_eq!(

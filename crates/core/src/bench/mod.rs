@@ -21,6 +21,41 @@ pub enum BenchError {
     TooFewFrames { frames: usize, min: usize },
 }
 
+/// Before or after the tweaks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Label {
+    Before,
+    After,
+}
+
+impl Label {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Label::Before => "before",
+            Label::After => "after",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "before" => Some(Label::Before),
+            "after" => Some(Label::After),
+            _ => None,
+        }
+    }
+}
+
+/// The runs of one `pco bench run` (same target and label).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Series {
+    /// Unix milliseconds when the series started; also its id.
+    pub id: i64,
+    pub target: String,
+    pub label: Label,
+    pub runs: Vec<Metrics>,
+}
+
 /// Frames needed for a meaningful result (a few seconds at low FPS).
 pub const MIN_FRAMES: usize = 30;
 

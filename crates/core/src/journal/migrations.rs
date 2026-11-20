@@ -32,4 +32,22 @@ pub(crate) const MIGRATIONS: &[&str] = &[
 
     CREATE INDEX entries_by_recipe ON entries (recipe_id, status);
     "#,
+    // 2 — benchmark results (Stage 2). One row per run; a series is one `pco bench run`.
+    r#"
+    CREATE TABLE benchmarks (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        series           INTEGER NOT NULL,
+        target           TEXT    NOT NULL,
+        label            TEXT    NOT NULL CHECK (label IN ('before', 'after')),
+        created_at       INTEGER NOT NULL,
+        frames           INTEGER NOT NULL,
+        seconds          REAL    NOT NULL,
+        avg_fps          REAL    NOT NULL,
+        low1_fps         REAL    NOT NULL,
+        avg_frametime_ms REAL    NOT NULL,
+        app_version      TEXT    NOT NULL
+    );
+
+    CREATE INDEX benchmarks_by_target ON benchmarks (target, label, series);
+    "#,
 ];
