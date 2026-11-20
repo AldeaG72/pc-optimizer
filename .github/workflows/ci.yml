@@ -117,6 +117,13 @@ jobs:
             reg.exe delete $key /v AutoGameModeEnabled /f | Out-Null
           }
 
+      - name: VM test script (docs/TESTARE-ETAPA-0.md, tests A-D) in Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          cargo build -q -p pco-cli
+          .\scripts\vm-test.ps1 -Pco .\target\debug\pco.exe -Work "$env:RUNNER_TEMP\vm-test" -IAmInAThrowawayWindows
+          exit $LASTEXITCODE
+
       - name: Remove the throwaway service
         if: always()
         shell: pwsh
