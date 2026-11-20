@@ -1,6 +1,10 @@
 # Rust build output
 /target/
 
+# Files prepared for the VM test (docs/TESTARE-ETAPA-0.md)
+/dist/
+jurnal-test.txt
+
 # Local journals / databases created during manual testing
 *.db
 *.db-journal

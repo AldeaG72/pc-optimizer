@@ -26,7 +26,7 @@ Asta e funcția pe care proprietarul a ales-o ca „de făcut perfect prima”.
   - de integrare (doar pe Windows) pe cheia `HKCU\Software\PcOptimizerTest`;
   - pentru fiecare rețetă reală, în CI pe `windows-latest`: snapshot înainte → apply → verify → undo → snapshot identic.
 - [x] **0.11 CI GitHub Actions**: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` (Linux + Windows), testul de rețete pe `windows-latest`.
-- [ ] **0.12 Instrucțiuni de test pentru proprietar**: `docs/TESTARE-ETAPA-0.md`, cu pașii exacți pentru mașina virtuală Windows 11 (comenzi de copiat).
+- [x] **0.12 Instrucțiuni de test pentru proprietar**: `docs/TESTARE-ETAPA-0.md`, cu pașii exacți pentru mașina virtuală Windows 11 (comenzi de copiat).
 
 ## Criterii de ieșire
 

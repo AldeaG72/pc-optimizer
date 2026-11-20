@@ -69,6 +69,48 @@ jobs:
           cargo run -q -p pco-cli -- --lang ro status
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Interrupted apply is undone at the next start (exit criterion 2)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:PCO_DATA_DIR = Join-Path $env:RUNNER_TEMP 'pco-interrupt'
+          $snaps = Join-Path $env:RUNNER_TEMP 'snaps'
+          $key = 'HKCU\Software\Microsoft\GameBar'
+          cargo build -q -p pco-cli
+          $pco = '.\target\debug\pco.exe'
+
+          # Give Game Mode something to change (it is the first recipe written), remembering
+          # the runner's own value.
+          $orig = reg.exe query $key /v AutoGameModeEnabled 2>$null
+          $hadValue = $LASTEXITCODE -eq 0
+          reg.exe add $key /v AutoGameModeEnabled /t REG_DWORD /d 0 /f | Out-Null
+
+          ./scripts/vm-snapshot.ps1 -Out "$snaps\before"
+
+          # Stop abruptly right after the first change, like a crash.
+          $env:PCO_TEST_STOP_AFTER_CHANGES = '1'
+          & $pco --lang en apply gaming.game-mode-on gaming.game-dvr-off privacy.advertising-id-off
+          if ($LASTEXITCODE -ne 99) { throw "expected the deliberate stop (99), got $LASTEXITCODE" }
+          Remove-Item Env:PCO_TEST_STOP_AFTER_CHANGES
+
+          # The next start must undo it and say so.
+          $out = (& $pco --lang en status) -join "`n"
+          Write-Host $out
+          if ($LASTEXITCODE -ne 0) { throw "pco status failed: $LASTEXITCODE" }
+          if ($out -notmatch 'was interrupted\. I undid it automatically: 1 changes restored') {
+            throw 'the recovery message is missing'
+          }
+          ./scripts/vm-snapshot.ps1 -Out "$snaps\after" -CompareWith "$snaps\before"
+          if ($LASTEXITCODE -ne 0) { throw 'the registry is not exactly as before' }
+
+          # Put the runner's own value back.
+          if ($hadValue) {
+            $data = ($orig | Select-String 'AutoGameModeEnabled').ToString().Trim() -split '\s+' | Select-Object -Last 1
+            reg.exe add $key /v AutoGameModeEnabled /t REG_DWORD /d ([Convert]::ToInt32($data, 16)) /f | Out-Null
+          } else {
+            reg.exe delete $key /v AutoGameModeEnabled /f | Out-Null
+          }
+
       - name: Remove the throwaway service
         if: always()
         shell: pwsh

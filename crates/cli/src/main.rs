@@ -34,7 +34,9 @@ mod real {
     use pco_cli::args::Cmd;
     use pco_cli::embedded::RECIPES;
     use pco_cli::i18n::Texts;
+    use pco_cli::testing::{StopAfterChanges, STOP_AFTER_CHANGES_VAR};
     use pco_core::backend::windows::{WindowsRegistry, WindowsServices};
+    use pco_core::backend::RegistryBackend;
     use pco_core::guard::{self, BlockedProcesses};
     use pco_core::journal::Journal;
     use pco_core::recipe;
@@ -95,11 +97,19 @@ mod real {
             Ok(j) => j,
             Err(e) => return fail(t, &e),
         };
-        let mut registry = WindowsRegistry::system();
+        // PCO_TEST_STOP_AFTER_CHANGES=N simulates a crash after N changes (VM and CI tests).
+        let stop_after = std::env::var(STOP_AFTER_CHANGES_VAR)
+            .ok()
+            .and_then(|v| v.trim().parse::<usize>().ok())
+            .filter(|n| *n > 0);
+        let mut registry: Box<dyn RegistryBackend> = match stop_after {
+            Some(n) => Box::new(StopAfterChanges::new(WindowsRegistry::system(), n)),
+            None => Box::new(WindowsRegistry::system()),
+        };
         let mut services = WindowsServices::system();
 
         let mut env = Env {
-            registry: &mut registry,
+            registry: &mut *registry,
             services: &mut services,
             journal: &mut journal,
             host,

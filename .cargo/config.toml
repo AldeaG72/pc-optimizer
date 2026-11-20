@@ -1,0 +1,4 @@
+# Link the C runtime statically on Windows, so pco.exe runs on a fresh Windows 11
+# (e.g. the test VM) without installing the Visual C++ Redistributable.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

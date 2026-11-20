@@ -9,6 +9,7 @@ pub mod app;
 pub mod args;
 pub mod format;
 pub mod i18n;
+pub mod testing;
 
 /// The recipes compiled into the program (see `build.rs`).
 pub mod embedded {
