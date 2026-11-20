@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/OWNER/REPO/recipes/schema/recipe.schema.json",
+  "$id": "https://github.com/AldeaG72/pc-optimizer/blob/main/recipes/schema/recipe.schema.json",
   "title": "Recipe",
   "description": "O rețetă = un tweak documentat și reversibil.",
   "type": "object",

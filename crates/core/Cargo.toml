@@ -11,6 +11,14 @@ publish.workspace = true
 name = "pco_core"
 
 [dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_path_to_error = "0.1.20"
+serde_yaml_ng = "0.10.0"
+thiserror = "2.0.21"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+jsonschema = { version = "0.61.2", default-features = false }
+serde_json = "1.0.154"
