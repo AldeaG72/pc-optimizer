@@ -1,6 +1,9 @@
 # Rust build output
 /target/
 
+# Third-party binaries fetched by scripts (e.g. scripts/fetch-presentmon.ps1)
+/vendor/
+
 # Files prepared for the VM test (docs/TESTARE-ETAPA-0.md)
 /dist/
 jurnal-test.txt

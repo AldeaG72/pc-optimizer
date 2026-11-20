@@ -22,8 +22,10 @@ Jocurile fără o hartă fixă de test (VALORANT, League of Legends) apar cu „
   Îți cer acordul înainte de prima descărcare.
 - [ ] **2.2 Rularea PresentMon**: pornit pentru procesul jocului, 60 s, rezultatul într-un fișier CSV temporar.
   Cere drepturi de administrator (Windows le cere pentru măsurare). Fără overlay în joc (SPEC).
-- [ ] **2.3 Calculul**: din CSV — FPS mediu (cadre / timp), 1% low (FPS la frametime-ul percentilei 99),
-  frametime mediu. Cadrele pierdute și rândurile stricate se tratează explicit.
+- [ ] **2.3 Calculul**: din CSV (coloana `MsBetweenPresents`, a ferestrei de desenare principale) — FPS mediu
+  (cadre / timp), 1% low (FPS mediu al celui mai lent 1% dintre cadre), frametime mediu. Valorile `NA`
+  și rândurile stricate se sar. *(1% low ca medie, nu ca percentila 99: percentila poate „sări” exact peste
+  sacade când ele sunt 1% din cadre — prins de teste.)*
 - [ ] **2.4 Istoricul**: tabel nou în jurnalul SQLite (migrarea 2): joc, „înainte/după”, data, rezultatele fiecărei
   rulări. `pco bench history` și `pco bench forget` (ștergere).
 - [ ] **2.5 Comparația și verdictul**: media celor 3 rulări „înainte” vs. „după”; scădere reală = peste 3% **și**
