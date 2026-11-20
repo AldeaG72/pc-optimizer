@@ -6,12 +6,24 @@ Durează cam **o oră**. Testezi `pco` pe un Windows 11 adevărat, dar „de uni
 Testele automate de pe GitHub au verificat deja aproape totul. Tu verifici ce nu poate face un robot:
 că setările chiar se văd în Windows și că mesajele sunt clare.
 
+> **Varianta automată.** Testele A–D de mai jos există și ca script: `vm-test.ps1`. Rulează la fiecare
+> trimitere de cod pe GitHub (pe Windows de unică folosință, în Windows PowerShell 5.1) și poate rula și
+> în mașina ta virtuală sau în Windows Sandbox. Într-un PowerShell ca administrator, în mașina virtuală:
+>
+> ```powershell
+> powershell -ExecutionPolicy Bypass -File C:\pco\vm-test.ps1 -IAmInAThrowawayWindows
+> ```
+>
+> La final scrie `ALL CHECKS PASSED` (verde) sau ce a picat (roșu) și salvează un raport
+> (`%TEMP%\pco-vm-test\report.md`). Fără `-IAmInAThrowawayWindows` refuză să pornească.
+> **Ce rămâne doar pentru tine:** verificarea cu ochii din B4 și testul D2 (fereastră fără admin).
+
 ---
 
 ## 1. Pregătește fișierele (pe laptop)
 
-Ai nevoie de două fișiere, deja puse într-un folder:
-`Documents\pc-optimizer\dist\vm-test\` → `pco.exe` și `vm-snapshot.ps1`.
+Ai nevoie de trei fișiere, deja puse într-un folder:
+`Documents\pc-optimizer\dist\vm-test\` → `pco.exe`, `vm-snapshot.ps1` și `vm-test.ps1`.
 
 Dacă folderul lipsește sau între timp s-a schimbat codul, refă-l. În PowerShell, pe laptop:
 
@@ -19,7 +31,7 @@ Dacă folderul lipsește sau între timp s-a schimbat codul, refă-l. În PowerS
 cd $HOME\Documents\pc-optimizer
 cargo build --release -p pco-cli
 New-Item -ItemType Directory -Force dist\vm-test
-Copy-Item target\release\pco.exe, scripts\vm-snapshot.ps1 dist\vm-test\
+Copy-Item target\release\pco.exe, scripts\vm-snapshot.ps1, scripts\vm-test.ps1 dist\vm-test\
 ```
 
 ## 2. Pornește mașina virtuală și fă un checkpoint
