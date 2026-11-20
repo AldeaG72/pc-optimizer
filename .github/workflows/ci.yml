@@ -132,6 +132,35 @@ jobs:
           .\scripts\vm-test.ps1 -Pco .\target\debug\pco.exe -Work "$env:RUNNER_TEMP\vm-test" -IAmInAThrowawayWindows
           exit $LASTEXITCODE
 
+      - name: Benchmark end to end (pinned PresentMon measuring a test app)
+        shell: pwsh
+        run: |
+          function Fail([string]$m) { Write-Host "::error title=Benchmark::$m"; exit 1 }
+          ./scripts/fetch-presentmon.ps1
+          if ($LASTEXITCODE -ne 0) { Fail "PresentMon download or SHA-256 check failed ($LASTEXITCODE)" }
+          cargo build -q -p pco-cli -p pco-frame-demo
+          $env:PCO_DATA_DIR = Join-Path $env:RUNNER_TEMP 'pco-bench'
+          $demo = Start-Process -FilePath .\target\debug\pco-frame-demo.exe -ArgumentList 150 -PassThru
+          Start-Sleep -Seconds 5
+          $common = @('--runs', '2', '--duration', '15', '--warmup', '1', '--no-launch', '--start-now')
+          $before = (& .\target\debug\pco.exe --lang en bench run pco-frame-demo.exe --before @common 2>&1) -join ' | '
+          $code = $LASTEXITCODE
+          Write-Host $before
+          if ($code -ne 0) { Stop-Process -Id $demo.Id -Force; Fail "pco bench --before failed ($code): $before" }
+          $after = (& .\target\debug\pco.exe --lang en bench run pco-frame-demo.exe --after @common 2>&1) -join ' | '
+          $code = $LASTEXITCODE
+          Stop-Process -Id $demo.Id -Force -ErrorAction SilentlyContinue
+          Write-Host $after
+          if ($code -ne 0) { Fail "pco bench --after failed ($code): $after" }
+          if ($after -notmatch 'before → after') { Fail "no comparison in: $after" }
+          $runs = [regex]::Matches($before + $after, 'average FPS ([0-9.]+), 1% low ([0-9.]+)')
+          if ($runs.Count -ne 4) { Fail "expected 4 runs, got $($runs.Count): $before $after" }
+          foreach ($m in $runs) {
+            $fps = [double]$m.Groups[1].Value; $low = [double]$m.Groups[2].Value
+            if ($fps -le 0 -or $low -gt $fps + 0.05) { Fail "implausible run: $($m.Value)" }
+          }
+          Write-Host "::notice title=Benchmark end to end::$(($runs | ForEach-Object Value) -join '; ')"
+
       - name: Remove the throwaway service
         if: always()
         shell: pwsh
