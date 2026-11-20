@@ -115,6 +115,7 @@ mod real {
             None => Box::new(WindowsRegistry::system()),
         };
         let mut services = WindowsServices::system();
+        let mut bench = pco_cli::bench_windows::WindowsBench::new();
 
         let mut env = Env {
             registry: &mut *registry,
@@ -126,6 +127,7 @@ mod real {
             recipes,
             hw: matches!(cmd, Cmd::Health { .. }).then(pco_core::hw::windows::detect),
             today: today(),
+            bench: &mut bench,
         };
         let mut out = std::io::stdout().lock();
         ExitCode::from(app::run(&mut env, t, cmd, &mut out) as u8)

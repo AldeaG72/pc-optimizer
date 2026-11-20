@@ -49,6 +49,14 @@ pub fn detect() -> HwInfo {
     info
 }
 
+/// Only the installed launch games (for `pco bench`).
+pub fn installed_games() -> Vec<super::Game> {
+    let mut info = HwInfo::default();
+    let mut errors = Vec::new();
+    games::games(&WindowsRegistry::test_sandbox(), &mut info, &mut errors);
+    info.games
+}
+
 /// Desktop or laptop only (chassis type + battery), for the recipe guards.
 pub fn form_factor() -> Option<crate::recipe::FormFactor> {
     let mut info = HwInfo::default();

@@ -7,6 +7,9 @@
 
 pub mod app;
 pub mod args;
+pub mod bench;
+#[cfg(windows)]
+pub mod bench_windows;
 pub mod format;
 pub mod health;
 pub mod i18n;

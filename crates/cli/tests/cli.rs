@@ -2,7 +2,11 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+
+use pco_cli::args::{BenchCmd, BenchRun};
+use pco_cli::bench::BenchDriver;
+use pco_core::hw::GameId;
 use std::ffi::OsString;
 use std::path::Path;
 
@@ -26,12 +30,71 @@ fn win11(elevated: bool) -> Host {
     }
 }
 
+/// Simulated PresentMon, launchers, keyboard and clock.
+#[derive(Default)]
+struct FakeBench {
+    presentmon_error: Option<String>,
+    /// Processes running now.
+    running: Vec<String>,
+    /// Starts running once a game is launched.
+    starts_on_launch: Option<String>,
+    launch_error: Option<String>,
+    launched: Vec<GameId>,
+    /// Answers to "press Enter" (`false` = the user stopped); missing = Enter.
+    enters: VecDeque<bool>,
+    /// Average FPS of each capture; a capture without a value fails.
+    fps: VecDeque<f64>,
+    captures: Vec<(String, u32)>,
+    slept: u32,
+}
+
+impl BenchDriver for FakeBench {
+    fn presentmon(&mut self) -> Result<(), String> {
+        self.presentmon_error.clone().map_or(Ok(()), Err)
+    }
+    fn is_running(&mut self, process: &str) -> bool {
+        self.running.iter().any(|p| p.eq_ignore_ascii_case(process))
+    }
+    fn launch(&mut self, game: GameId) -> Result<(), String> {
+        if let Some(e) = &self.launch_error {
+            return Err(e.clone());
+        }
+        self.launched.push(game);
+        if let Some(p) = self.starts_on_launch.take() {
+            self.running.push(p);
+        }
+        Ok(())
+    }
+    fn wait_for_enter(&mut self) -> bool {
+        self.enters.pop_front().unwrap_or(true)
+    }
+    fn sleep(&mut self, seconds: u32) {
+        self.slept += seconds;
+    }
+    fn capture(&mut self, process: &str, seconds: u32) -> Result<String, String> {
+        self.captures.push((process.to_owned(), seconds));
+        let fps = self.fps.pop_front().ok_or("simulated PresentMon failure")?;
+        let mut csv = String::from("Application,SwapChainAddress,MsBetweenPresents\n");
+        for _ in 0..(fps as usize * 10) {
+            csv.push_str(&format!("{process},0x1,{:.6}\n", 1000.0 / fps));
+        }
+        Ok(csv)
+    }
+    fn now_ms(&mut self) -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64
+    }
+}
+
 struct World {
     reg: MemoryRegistry,
     svc: MemoryServices,
     journal: Journal,
     host: Host,
     running: Vec<String>,
+    bench: FakeBench,
 }
 
 impl World {
@@ -54,6 +117,7 @@ impl World {
             journal: Journal::open_in_memory().unwrap(),
             host: win11(false),
             running: vec!["explorer.exe".into()],
+            bench: FakeBench::default(),
         }
     }
 
@@ -69,6 +133,7 @@ impl World {
             recipes: recipe::load_embedded(RECIPES).unwrap(),
             hw: Some(dev_laptop()),
             today: pco_core::health::days_from_date("2026-11-21").unwrap(),
+            bench: &mut self.bench,
         };
         let mut out = Vec::new();
         let exit = run(&mut env, &texts, &cmd, &mut out);
@@ -571,6 +636,7 @@ fn health_without_detection_is_an_error() {
         recipes: vec![],
         hw: None,
         today: 0,
+        bench: &mut w.bench,
     };
     let mut out = Vec::new();
     assert_eq!(
@@ -598,4 +664,292 @@ fn status_on_an_empty_journal() {
         out.contains("Nicio rețetă aplicată acum de aplicație."),
         "{out}"
     );
+}
+
+// --- pco bench ------------------------------------------------------------------------------
+
+fn bench_run(target: &str, after: bool) -> Cmd {
+    Cmd::Bench(BenchCmd::Run(BenchRun {
+        target: target.into(),
+        after,
+        runs: 3,
+        duration: 60,
+        warmup: 10,
+        launch: true,
+        wait_for_enter: true,
+    }))
+}
+
+/// An administrator with CS2 running and PresentMon in place.
+fn bench_world() -> World {
+    let mut w = World::new();
+    w.host = win11(true);
+    w.bench.running = vec!["cs2.exe".into()];
+    w
+}
+
+#[test]
+fn bench_arguments() {
+    match parse("pco bench run cs2 --before").unwrap() {
+        Cmd::Bench(BenchCmd::Run(r)) => {
+            assert_eq!(
+                (r.target.as_str(), r.after, r.runs, r.duration, r.warmup),
+                ("cs2", false, 3, 60, 10)
+            );
+            assert!(r.launch && r.wait_for_enter);
+        }
+        other => panic!("{other:?}"),
+    }
+    match parse("pco bench run msedge.exe --after --runs 1 --duration 20 --warmup 2 --no-launch --start-now").unwrap() {
+        Cmd::Bench(BenchCmd::Run(r)) => {
+            assert_eq!((r.runs, r.duration, r.warmup), (1, 20, 2));
+            assert!(r.after && !r.launch && !r.wait_for_enter);
+        }
+        other => panic!("{other:?}"),
+    }
+    assert!(
+        parse("pco bench run cs2").is_err(),
+        "--before or --after is required"
+    );
+    assert!(parse("pco bench run cs2 --before --after").is_err());
+    assert!(parse("pco bench run cs2 --before --runs 0").is_err());
+    assert_eq!(
+        parse("pco bench compare cs2").unwrap(),
+        Cmd::Bench(BenchCmd::Compare {
+            target: "cs2".into()
+        })
+    );
+    assert_eq!(
+        parse("pco bench history").unwrap(),
+        Cmd::Bench(BenchCmd::History { target: None })
+    );
+    assert_eq!(
+        parse("pco bench forget --all").unwrap(),
+        Cmd::Bench(BenchCmd::Forget { target: None })
+    );
+    assert!(parse("pco bench forget").is_err());
+}
+
+#[test]
+fn bench_before_then_after_shows_the_gain() {
+    let mut w = bench_world();
+    w.bench.fps = VecDeque::from([140.0, 142.0, 144.0]);
+    let (exit, out) = w.ro(bench_run("cs2", false));
+    assert_eq!(exit, Exit::Ok, "{out}");
+    assert!(out.contains("Măsor cs2: 3 rulări de câte 60 s."), "{out}");
+    assert!(out.contains("Rularea 1/3: apasă Enter"), "{out}");
+    assert!(out.contains("Rularea 2: FPS mediu 142,0"), "{out}");
+    assert!(
+        out.contains("Salvat: 3 rulări „înainte” pentru cs2."),
+        "{out}"
+    );
+    assert!(out.contains("pco bench run cs2 --after"), "{out}");
+    assert_eq!(w.bench.slept, 30, "10 s before each run");
+    assert_eq!(w.bench.captures, vec![("cs2.exe".to_owned(), 60); 3]);
+
+    w.bench.fps = VecDeque::from([150.0, 151.0, 152.0]);
+    let (exit, out) = w.ro(bench_run("cs2", true));
+    assert_eq!(exit, Exit::Ok, "{out}");
+    assert!(out.contains("cs2: înainte → după"), "{out}");
+    assert!(out.contains("FPS mediu:  142,0 → 151,0 (+6,3%)"), "{out}");
+    assert!(out.contains("Tweak-urile au ajutat."), "{out}");
+    assert!(!out.contains("pco undo"), "{out}");
+    assert!(
+        w.journal.applied_recipe_ids().unwrap().is_empty(),
+        "bench changes no settings"
+    );
+}
+
+#[test]
+fn bench_drop_after_tweaks_proposes_undoing_them() {
+    let mut w = bench_world();
+    w.bench.fps = VecDeque::from([140.0, 142.0, 144.0]);
+    w.ro(bench_run("cs2", false));
+    // Tweaks between the two measurements (CS2 is closed for applying, as the guard requires).
+    w.running = vec!["explorer.exe".into()];
+    assert_eq!(w.ro(apply(&[DVR])).0, Exit::Ok);
+    w.bench.fps = VecDeque::from([130.0, 131.0, 132.0]);
+    let (exit, out) = w.ro(bench_run("cs2", true));
+    assert_eq!(exit, Exit::Ok, "{out}");
+    assert!(out.contains("(-7,7%)"), "{out}");
+    assert!(
+        out.contains("FPS-ul a scăzut clar după tweak-uri. Anulez modificările? Rulează: pco undo gaming.game-dvr-off"),
+        "{out}"
+    );
+}
+
+#[test]
+fn bench_drop_without_tweaks_in_between() {
+    let mut w = bench_world();
+    w.bench.fps = VecDeque::from([140.0, 142.0, 144.0, 130.0, 131.0, 132.0]);
+    w.ro(bench_run("cs2", false));
+    let (_, out) = w.run(Lang::En, bench_run("cs2", true));
+    assert!(
+        out.contains("no tweaks were applied between the two measurements"),
+        "{out}"
+    );
+}
+
+#[test]
+fn bench_small_differences_are_noise() {
+    let mut w = bench_world();
+    w.bench.fps = VecDeque::from([140.0, 142.0, 144.0, 141.0, 142.5, 143.0]);
+    w.ro(bench_run("cs2", false));
+    let (_, out) = w.ro(bench_run("cs2", true));
+    assert!(out.contains("Nicio diferență clară"), "{out}");
+}
+
+#[test]
+fn bench_needs_admin_and_a_verified_presentmon() {
+    let mut w = bench_world();
+    w.host = win11(false);
+    let (exit, out) = w.ro(bench_run("cs2", false));
+    assert_eq!(exit, Exit::Blocked);
+    assert!(out.contains("Run as administrator"), "{out}");
+    assert!(w.bench.captures.is_empty());
+
+    let mut w = bench_world();
+    w.bench.presentmon_error = Some("SHA-256 mismatch".into());
+    let (exit, out) = w.ro(bench_run("cs2", false));
+    assert_eq!(exit, Exit::Error);
+    assert!(
+        out.contains("PresentMon nu e disponibil: SHA-256 mismatch"),
+        "{out}"
+    );
+    assert!(w.bench.captures.is_empty());
+}
+
+#[test]
+fn bench_starts_the_game_through_its_launcher() {
+    let mut w = bench_world();
+    w.bench.running = vec![];
+    w.bench.starts_on_launch = Some("FortniteClient-Win64-Shipping.exe".into());
+    w.bench.fps = VecDeque::from([200.0, 201.0, 202.0]);
+    let (exit, out) = w.ro(bench_run("fortnite", false));
+    assert_eq!(exit, Exit::Ok, "{out}");
+    assert!(out.contains("Pornesc Fortnite"), "{out}");
+    assert_eq!(w.bench.launched, [GameId::Fortnite]);
+    assert_eq!(w.bench.captures[0].0, "FortniteClient-Win64-Shipping.exe");
+
+    let mut w = bench_world();
+    w.bench.running = vec![];
+    w.bench.launch_error = Some("not installed".into());
+    let (exit, out) = w.ro(bench_run("valorant", false));
+    assert_eq!(exit, Exit::Error);
+    assert!(
+        out.contains("Nu am putut porni VALORANT: not installed"),
+        "{out}"
+    );
+
+    // --no-launch and not running.
+    let mut w = bench_world();
+    w.bench.running = vec![];
+    let mut cmd = bench_run("cs2", false);
+    if let Cmd::Bench(BenchCmd::Run(r)) = &mut cmd {
+        r.launch = false;
+    }
+    let (exit, out) = w.ro(cmd);
+    assert_eq!(exit, Exit::Error);
+    assert!(out.contains("cs2.exe nu rulează"), "{out}");
+    assert!(w.bench.launched.is_empty());
+}
+
+#[test]
+fn bench_any_process_and_the_less_precise_games() {
+    let mut w = bench_world();
+    w.bench.running = vec!["msedge.exe".into()];
+    w.bench.fps = VecDeque::from([60.0, 60.0, 60.0]);
+    let (exit, out) = w.ro(bench_run("MSEdge.exe", false));
+    assert_eq!(exit, Exit::Ok, "{out}");
+    assert_eq!(
+        w.journal.benchmark_series(None).unwrap()[0].target,
+        "msedge.exe"
+    );
+
+    let mut w = bench_world();
+    w.bench.running = vec!["VALORANT-Win64-Shipping.exe".into()];
+    w.bench.fps = VecDeque::from([300.0, 300.0, 300.0]);
+    let (_, out) = w.ro(bench_run("valorant", false));
+    assert!(
+        out.contains("VALORANT nu are o hartă fixă de test"),
+        "{out}"
+    );
+
+    let (exit, out) = w.ro(bench_run("minecraft", false));
+    assert_eq!(exit, Exit::Error);
+    assert!(out.contains("Nu cunosc „minecraft”"), "{out}");
+}
+
+#[test]
+fn bench_stop_keeps_finished_runs_and_failures_are_reported() {
+    let mut w = bench_world();
+    w.bench.fps = VecDeque::from([140.0, 141.0]);
+    w.bench.enters = VecDeque::from([true, false]);
+    let (exit, out) = w.ro(bench_run("cs2", false));
+    assert_eq!(exit, Exit::Ok, "{out}");
+    assert!(
+        out.contains("Oprit. Rulările terminate până acum sunt salvate."),
+        "{out}"
+    );
+    assert_eq!(
+        w.journal
+            .latest_series("cs2", pco_core::bench::Label::Before)
+            .unwrap()
+            .unwrap()
+            .runs
+            .len(),
+        1
+    );
+
+    let mut w = bench_world();
+    w.bench.fps = VecDeque::from([140.0]); // the second capture fails
+    let (exit, out) = w.ro(bench_run("cs2", false));
+    assert_eq!(exit, Exit::Error);
+    assert!(
+        out.contains("Rularea 2 nu a reușit: simulated PresentMon failure"),
+        "{out}"
+    );
+}
+
+#[test]
+fn bench_history_compare_and_forget() {
+    let mut w = bench_world();
+    let (_, out) = w.ro(Cmd::Bench(BenchCmd::History { target: None }));
+    assert!(out.contains("Nicio măsurătoare salvată."), "{out}");
+    let (_, out) = w.ro(Cmd::Bench(BenchCmd::Compare {
+        target: "cs2".into(),
+    }));
+    assert!(
+        out.contains("Nu am o măsurătoare „înainte” pentru cs2"),
+        "{out}"
+    );
+
+    w.bench.fps = VecDeque::from([140.0, 142.0, 144.0, 150.0, 151.0, 152.0]);
+    w.ro(bench_run("cs2", false));
+    let (_, out) = w.ro(Cmd::Bench(BenchCmd::Compare {
+        target: "cs2".into(),
+    }));
+    assert!(out.contains("lipsește măsurătoarea „după”"), "{out}");
+    w.ro(bench_run("cs2", true));
+
+    let (_, out) = w.ro(Cmd::Bench(BenchCmd::History {
+        target: Some("cs2".into()),
+    }));
+    assert!(out.contains("cs2  după  3 rulări  FPS 151,0"), "{out}");
+    assert!(out.contains("cs2  înainte  3 rulări  FPS 142,0"), "{out}");
+    assert!(
+        out.find("după").unwrap() < out.find("înainte").unwrap(),
+        "newest first"
+    );
+
+    let (_, out) = w.ro(Cmd::Bench(BenchCmd::Compare {
+        target: "cs2".into(),
+    }));
+    assert!(out.contains("+6,3%"), "{out}");
+
+    let (_, out) = w.ro(Cmd::Bench(BenchCmd::Forget {
+        target: Some("cs2".into()),
+    }));
+    assert!(out.contains("Am șters 6 rulări."), "{out}");
+    assert!(w.journal.benchmark_series(None).unwrap().is_empty());
 }

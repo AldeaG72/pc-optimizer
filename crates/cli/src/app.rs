@@ -31,6 +31,8 @@ pub struct Env<'a> {
     pub hw: Option<HwInfo>,
     /// Today, in days since 1970-01-01 (for the driver's age).
     pub today: i64,
+    /// PresentMon, launchers, keyboard and clock for `pco bench`.
+    pub bench: &'a mut dyn crate::bench::BenchDriver,
 }
 
 impl Env<'_> {
@@ -118,6 +120,7 @@ fn run_inner(env: &mut Env<'_>, t: &Texts, cmd: &Cmd, out: &mut dyn Write) -> Re
         Cmd::Undo { ids, all } => undo(env, t, ids, *all, out),
         Cmd::Status => status(env, t, out),
         Cmd::Health { json } => health(env, t, *json, out),
+        Cmd::Bench(b) => crate::bench::run(env, t, b, out),
     }
 }
 
