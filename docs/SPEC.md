@@ -64,6 +64,12 @@ jocul instalat pe HDD · TRIM · SMART · spațiu liber · alte optimizatoare in
 overlay-uri (Discord, Steam, NVIDIA, Xbox: listate + cum se opresc) · PC administrat de organizație.
 Pe mai multe monitoare: întreabă pe ce monitor joci.
 
+Decizii pentru Etapa 1 (2026-11-21):
+- **Driver video:** doar local — versiunea și data driverului instalat; avertisment dacă e vechi, cu linkul oficial al producătorului. Fără verificare online deocamdată.
+- **Jocuri:** detectarea jocurilor instalate (Steam, Epic, Riot, EA app) se face din Etapa 1, ca să meargă verificările „jocul e pe HDD” și „jocul rulează pe placa integrată”. Etapa 2 o refolosește.
+- **Mai multe monitoare:** în linia de comandă se verifică toate monitoarele, fiecare afișat separat; întrebarea „pe care joci?” vine în interfață (Etapa 3).
+- **`pco health` doar explică:** arată problema, de ce contează și cum se rezolvă (cu rețeta potrivită, unde există). Nu schimbă nimic. Butonul „Rezolvă” vine în interfață (Etapa 3).
+
 ### 4.2 Tweak-uri (catalog inițial; fiecare devine rețetă YAML)
 - **Alimentare:** plan ales după benchmark pe desktop; profil Laptop separat; Power Throttling + Core Parking oprite (Moderat, doar desktop); USB selective suspend oprit (desktop; laptop doar pe încărcător).
 - **Gaming:** Game Mode pornit; Game Bar oprit opțional; Game DVR oprit; optimizări pentru jocuri în fereastră; HAGS recomandat după benchmark; MPO oprit (Moderat, doar la flicker/sacade).
