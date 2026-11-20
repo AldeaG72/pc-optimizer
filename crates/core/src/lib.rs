@@ -6,6 +6,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod backend;
+pub mod journal;
 pub mod recipe;
 
 /// Crate version, taken from the workspace `Cargo.toml`.
