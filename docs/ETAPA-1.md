@@ -54,8 +54,10 @@ Asta deblochează și rețetele care depind de tipul PC-ului (desktop/laptop), b
   - citirea bibliotecilor de jocuri (Steam, Epic, Riot, EA) pe fișiere de exemplu;
   - detectarea reală pe Windows: rulează pe PC-ul de dezvoltare și în CI (doar citește) și dă valori plauzibile.
 - [x] **1.7 CI**: `pco health` și `pco health --json` rulează pe Windows.
-- [ ] **1.8 Testul proprietarului**: rulezi `pco health` pe laptopul tău (doar citește — permis) și îmi spui dacă
+- [x] **1.8 Testul proprietarului**: rulezi `pco health` pe laptopul tău (doar citește — permis) și îmi spui dacă
   hardware-ul și problemele arătate corespund realității. ~5 minute.
+
+*(2026-11-21: proprietarul a confirmat că hardware-ul arătat de `pco health` pe laptopul lui e corect — Windows 11 Pro 24H2, i5-1245U, 16 GB dual-channel, Iris Xe, ecran 1920×1200 la 60 Hz, SSD Samsung 512 GB, pe baterie.)*
 
 ## Criterii de ieșire
 
