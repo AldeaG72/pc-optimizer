@@ -23,8 +23,16 @@ if (-not $IAmInAThrowawayWindows) {
 
 # pco writes UTF-8; read it as UTF-8 (Romanian diacritics).
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
-$ErrorActionPreference = 'Stop'
+# 'Continue', not 'Stop': in Windows PowerShell 5.1, text a program writes to stderr (pco's
+# deliberate-stop message in test C) would otherwise abort the script. Every step is checked
+# explicitly instead, and unexpected errors are caught below.
+$ErrorActionPreference = 'Continue'
 $onGitHub = $env:GITHUB_ACTIONS -eq 'true'
+trap {
+    Write-Host "UNEXPECTED ERROR: $_" -ForegroundColor Red
+    if ($onGitHub) { Write-Host "::error title=VM test script::unexpected error: $_" }
+    exit 4
+}
 
 Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Work | Out-Null
@@ -39,10 +47,11 @@ function Check([string]$test, [string]$what, [bool]$ok, [string]$detail = '') {
     $report.Add([pscustomobject]@{ Test = $test; Check = $what; Result = $status; Detail = $detail })
     $color = if ($ok) { 'Green' } else { 'Red' }
     Write-Host ("[{0}] {1} {2} {3}" -f $status, $test, $what, $detail) -ForegroundColor $color
-    if ($onGitHub) {
-        $level = if ($ok) { 'notice' } else { 'error' }
+    # GitHub shows at most 10 annotations of each kind per step: only failures here, the
+    # summary at the end.
+    if ($onGitHub -and -not $ok) {
         $msg = ("$what $detail").Replace("`r", ' ').Replace("`n", ' | ')
-        Write-Host "::$level title=VM test ${test}::$msg"
+        Write-Host "::error title=VM test ${test}::$msg"
     }
 }
 
@@ -180,6 +189,11 @@ $md | Set-Content -Encoding UTF8 -Path (Join-Path $Work 'report.md')
 Write-Host ''
 $report | Format-Table -AutoSize | Out-String -Width 200 | Write-Host
 Write-Host "Report: $(Join-Path $Work 'report.md')   Full log: $log"
+if ($onGitHub) {
+    $okCount = @($report | Where-Object Result -eq 'OK').Count
+    $skipped = ($report | Where-Object Result -eq 'SKIP' | ForEach-Object { "$($_.Test) $($_.Check)" }) -join '; '
+    Write-Host "::notice title=VM test summary::$okCount OK, $failed FAIL. Skipped: $skipped"
+}
 if ($failed -eq 0) {
     Write-Host 'ALL CHECKS PASSED' -ForegroundColor Green
     exit 0
