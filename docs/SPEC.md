@@ -129,5 +129,13 @@ Beta: grup selectat cu PC-uri diverse. Lansare v0.1: când e sigură, fără ter
 - **Etapa 4** – mod joc, setări automate de driver NVIDIA/AMD, teste de rețea și mouse, recomandări pe joc. Fac parte din MVP: v0.1 public apare după această etapă.
 - **După v0.1** – export/import configurație, suport Intel, istoric extins.
 
+Decizii pentru Etapa 3 (2026-11-21):
+- **Interfața:** Svelte (în Tauri 2).
+- **Mockup:** nu există în kit; ecranele se desenează după secțiunea 3 și se arată proprietarului înainte de programare.
+- **Semnarea installer-ului:** SignPath Foundation (gratuit pentru open-source; cererea o face proprietarul). Până la
+  aprobare, beta-testerii primesc installer-ul nesemnat, cu explicația avertismentului SmartScreen.
+- **Catalogul de tweak-uri:** rețetele din 4.2 se adaugă în Etapa 3, ca beta să aibă ce testa, în afară de
+  categoria Avansat, care rămâne pentru mai târziu (comutatorul din Setări există, dar lista e goală).
+
 ## 7. Decizii deschise
-Framework UI (Svelte sau React) · numele + logo · suport driver Intel · LibreHardwareMonitor pentru temperaturi (cere driver) · cine recrutează beta-testerii.
+Numele + logo · suport driver Intel · LibreHardwareMonitor pentru temperaturi (cere driver) · cine recrutează beta-testerii.
