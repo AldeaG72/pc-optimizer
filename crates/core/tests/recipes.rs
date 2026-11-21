@@ -323,14 +323,54 @@ fn all_repository_recipes_load() {
     assert_eq!(
         ids,
         [
+            "cleanup.launcher-caches",
+            "cleanup.recycle-bin",
+            "cleanup.user-temp",
+            "cleanup.windows-temp",
+            "debloat.app-clipchamp",
+            "debloat.app-copilot",
+            "debloat.app-family",
+            "debloat.app-feedback-hub",
+            "debloat.app-get-help",
+            "debloat.app-maps",
+            "debloat.app-news",
+            "debloat.app-office-hub",
+            "debloat.app-power-automate",
+            "debloat.app-solitaire",
+            "debloat.app-teams",
+            "debloat.app-tips",
+            "debloat.app-todo",
+            "debloat.app-weather",
+            "debloat.copilot-off",
+            "debloat.edge-background-off",
+            "debloat.recall-off",
+            "debloat.widgets-off",
             "gaming.game-dvr-off",
             "gaming.game-mode-on",
+            "gaming.hags-on",
+            "input.filter-keys-hotkey-off",
+            "input.mouse-acceleration-off",
             "input.sticky-keys-hotkey-off",
+            "network.eee-off",
+            "power.core-parking-off",
+            "power.high-performance-plan",
+            "power.usb-suspend-off",
+            "privacy.activity-history-off",
             "privacy.advertising-id-off",
+            "privacy.start-web-search-off",
+            "privacy.telemetry-minimum",
             "services.fax-disabled",
+            "windows.feature-updates-deferred",
             "windows.taskbar-end-task",
         ]
     );
+    // Every recipe states its sources, and cleanups are never in a profile.
+    for r in &recipes {
+        assert!(!r.sources.is_empty(), "{}", r.id);
+        if r.is_cleanup() {
+            assert!(r.profiles.is_empty(), "{}", r.id);
+        }
+    }
 
     let sticky = recipes
         .iter()

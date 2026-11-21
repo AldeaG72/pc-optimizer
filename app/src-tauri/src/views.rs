@@ -207,6 +207,10 @@ pub enum HelperRequest {
         ids: Vec<String>,
     },
     UndoAll,
+    /// Cleanup recipes: the system folders (the app cleans the user's own itself).
+    Clean {
+        ids: Vec<String>,
+    },
     Bench {
         target: String,
         label: String,
@@ -238,6 +242,7 @@ impl HelperRequest {
             },
             HelperRequest::Undo { ids } => Request::Undo { ids: check(ids)? },
             HelperRequest::UndoAll => Request::UndoAll,
+            HelperRequest::Clean { ids } => Request::Clean { ids: check(ids)? },
             HelperRequest::Bench {
                 target,
                 label,

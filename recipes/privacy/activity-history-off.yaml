@@ -1,0 +1,48 @@
+id: privacy.activity-history-off
+version: 1
+name:
+  ro: Istoricul de activitate oprit
+  en: Activity history off
+description:
+  ro: Windows nu mai păstrează și nu mai trimite istoricul aplicațiilor și fișierelor folosite, prin politicile oficiale „OS Policies”.
+  en: Windows no longer keeps or uploads the history of the apps and files you used, through the official “OS Policies”.
+category: privacy
+risk: safe
+profiles: [recommended, laptop]
+impact:
+  ro: Foarte mic asupra performanței; mai puține date despre tine păstrate și trimise
+  en: Very low on performance; less data about you kept and sent
+why:
+  ro: Istoricul de activitate înregistrează ce deschizi ca să-l poți relua pe alt dispozitiv. Pentru jocuri nu ai nevoie de el.
+  en: Activity history records what you open so you can resume it on another device. Games do not need it.
+breaks:
+  ro: Nu mai poți relua activități pe alt dispozitiv. Se aplică tuturor conturilor de pe acest PC.
+  en: You can no longer resume activities on another device. Applies to every account on this PC.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  - https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy
+  - https://learn.microsoft.com/en-us/windows/privacy/manage-connections-from-windows-operating-system-components-to-microsoft-services
+# Documented: Privacy/EnableActivityFeed, PublishUserActivities, UploadUserActivities, under
+# SOFTWARE\Policies\Microsoft\Windows\System (OSPolicy.admx).
+verified: false
+actions:
+  - type: registry
+    hive: HKLM
+    key: SOFTWARE\Policies\Microsoft\Windows\System
+    value: EnableActivityFeed
+    kind: dword
+    set: 0
+  - type: registry
+    hive: HKLM
+    key: SOFTWARE\Policies\Microsoft\Windows\System
+    value: PublishUserActivities
+    kind: dword
+    set: 0
+  - type: registry
+    hive: HKLM
+    key: SOFTWARE\Policies\Microsoft\Windows\System
+    value: UploadUserActivities
+    kind: dword
+    set: 0

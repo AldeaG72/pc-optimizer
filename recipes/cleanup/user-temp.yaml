@@ -1,0 +1,32 @@
+id: cleanup.user-temp
+version: 1
+name:
+  ro: Fișierele tale temporare
+  en: Your temporary files
+description:
+  ro: Șterge fișierele temporare ale contului tău mai vechi de o zi (folderul Temp din AppData). Fișierele folosite acum rămân.
+  en: Deletes your account's temporary files older than a day (the Temp folder in AppData). Files in use stay.
+category: cleanup
+risk: safe
+# A cleanup is never in a profile: it always asks first (it cannot be undone).
+profiles: []
+impact:
+  ro: Spațiu pe disc eliberat; fără efect asupra FPS
+  en: Disk space freed; no effect on FPS
+why:
+  ro: Programele și instalatoarele lasă fișiere temporare pe care nu le mai șterg. Windows face același lucru cu Storage Sense.
+  en: Programs and installers leave temporary files they never delete. Windows does the same with Storage Sense.
+breaks:
+  ro: Nu se poate anula. Fișierele din ultimele 24 de ore nu sunt atinse, ca un instalator pornit să nu fie încurcat.
+  en: Cannot be undone. Files from the last 24 hours are not touched, so a running installer is not disturbed.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  - https://support.microsoft.com/en-us/windows/experience/storage-filemanagement/manage-drive-space-with-storage-sense
+  - https://support.microsoft.com/en-us/windows/experience/storage-filemanagement/storage-settings-in-windows
+# Run by the app itself, without administrator rights; links are never followed.
+verified: false
+actions:
+  - type: cleanup
+    target: user-temp

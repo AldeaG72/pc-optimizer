@@ -241,8 +241,6 @@ pub enum CleanupTarget {
     UserTemp,
     /// `C:\Windows\Temp`.
     WindowsTemp,
-    /// Downloaded Windows Update files that are already installed.
-    UpdateCache,
     /// Web caches of game launchers (rebuilt on demand).
     LauncherCaches,
     /// The Recycle Bin.

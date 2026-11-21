@@ -11,6 +11,7 @@
 //! Request:  `{"v":1,"op":"apply","ids":["gaming.game-mode-on"]}`
 //!           `{"v":1,"op":"undo","ids":["gaming.game-mode-on"]}`
 //!           `{"v":1,"op":"undo_all"}`
+//!           `{"v":1,"op":"clean","ids":["cleanup.windows-temp"]}`
 //!           `{"v":1,"op":"bench","target":"cs2","label":"before","runs":3,"duration":60,"warmup":10}`
 //! Events:   `{"event":"hello","version":1}`, then `started` / `result` per recipe, then `done`
 //!           (or a single `refused` / `blocked` / `error`).
@@ -43,6 +44,10 @@ pub enum Request {
         ids: Vec<String>,
     },
     UndoAll,
+    /// Run built-in cleanup recipes (system folders only; the app cleans the user's own).
+    Clean {
+        ids: Vec<String>,
+    },
     /// Measure FPS: `after` false = before the tweaks.
     Bench {
         target: String,
@@ -62,6 +67,7 @@ impl Request {
             }),
             Request::Undo { ids } => serde_json::json!({"v": VERSION, "op": "undo", "ids": ids}),
             Request::UndoAll => serde_json::json!({"v": VERSION, "op": "undo_all"}),
+            Request::Clean { ids } => serde_json::json!({"v": VERSION, "op": "clean", "ids": ids}),
             Request::Bench {
                 target,
                 after,
@@ -171,6 +177,12 @@ pub enum Outcome {
         restored: usize,
     },
     NothingToUndo,
+    /// A cleanup ran (it has no undo).
+    Cleaned {
+        freed_bytes: u64,
+        deleted: u64,
+        skipped: u64,
+    },
 }
 
 /// The strongest restart any changed recipe needs.
@@ -333,7 +345,7 @@ pub fn parse_request(line: &str) -> Result<Request, Refusal> {
     };
     let allowed: &[&str] = match op {
         "apply" => &["v", "op", "ids", "restore_point"],
-        "undo" => &["v", "op", "ids"],
+        "undo" | "clean" => &["v", "op", "ids"],
         "undo_all" => &["v", "op"],
         "bench" => &["v", "op", "target", "label", "runs", "duration", "warmup"],
         _ => return Err(Refusal::BadShape("op".into())),
@@ -372,6 +384,8 @@ pub fn parse_request(line: &str) -> Result<Request, Refusal> {
             Some(_) => return Err(Refusal::BadShape("restore_point".into())),
         };
         Request::Apply { ids, restore_point }
+    } else if op == "clean" {
+        Request::Clean { ids }
     } else {
         Request::Undo { ids }
     })

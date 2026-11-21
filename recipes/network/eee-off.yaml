@@ -1,0 +1,35 @@
+id: network.eee-off
+version: 1
+name:
+  ro: Energy Efficient Ethernet oprit
+  en: Energy Efficient Ethernet off
+description:
+  ro: Placa de rețea prin cablu nu mai intră în modul de economisire între pachete (IEEE 802.3az). Doar plăcile care au această setare.
+  en: The wired network card no longer enters power saving between packets (IEEE 802.3az). Only cards that have this setting.
+category: network
+risk: safe
+profiles: [recommended]
+impact:
+  ro: Mic; poate elimina mici întârzieri sau deconectări pe unele plăci
+  en: Low; can remove small delays or drops on some cards
+why:
+  ro: Între pachete, placa își reduce consumul și are nevoie de un moment ca să revină. Pe unele plăci și routere asta aduce întârzieri mici sau deconectări scurte.
+  en: Between packets the card lowers its power and needs a moment to come back. On some cards and routers that causes small delays or short drops.
+breaks:
+  ro: Consum puțin mai mare al plăcii de rețea. Are efect după restart.
+  en: Slightly higher network card power use. Takes effect after a restart.
+requires_restart: reboot
+platform:
+  min_build: 22000
+  form_factor: desktop
+sources:
+  # *EEE: 0 = disabled, 1 = enabled (standard keyword, the driver's "Advanced" tab).
+  - https://learn.microsoft.com/en-us/windows-hardware/drivers/network/standardized-inf-keywords-for-power-management
+# The keyword and its values are documented. Not tested in CI: the runner's virtual adapters
+# do not offer it (the adapter path itself is tested). Stays `false`.
+verified: false
+actions:
+  - type: net-adapter
+    value: "*EEE"
+    kind: string
+    set: "0"

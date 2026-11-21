@@ -1,0 +1,37 @@
+id: privacy.telemetry-minimum
+version: 1
+name:
+  ro: Datele de diagnostic trimise la Microsoft la minim
+  en: Diagnostic data sent to Microsoft at the minimum
+description:
+  ro: Windows trimite doar datele de diagnostic obligatorii (nivelul „Required”), prin politica oficială „Allow Diagnostic Data”.
+  en: Windows sends only the required diagnostic data (the “Required” level), through the official “Allow Diagnostic Data” policy.
+category: privacy
+risk: safe
+# SPEC 4.2: the privacy category is part of the global "Recommended".
+profiles: [recommended, laptop]
+impact:
+  ro: Foarte mic asupra performanței; mai puține date despre tine trimise
+  en: Very low on performance; less data about you sent
+why:
+  ro: Datele opționale de diagnostic includ ce aplicații folosești și cum. Pentru jocuri nu ai nevoie de ele.
+  en: Optional diagnostic data includes which apps you use and how. Games do not need it.
+breaks:
+  ro: Unele funcții care cer date opționale (de exemplu programul Windows Insider) nu mai pot fi pornite. Windows arată „gestionat de organizația ta” la Diagnostic.
+  en: Some features that need optional data (for example the Windows Insider Program) can no longer be turned on. Windows shows “managed by your organization” under Diagnostics.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  - https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-system
+  - https://learn.microsoft.com/en-us/windows/privacy/configure-windows-diagnostic-data-in-your-organization
+# Documented: System/AllowTelemetry, SOFTWARE\Policies\Microsoft\Windows\DataCollection;
+# 1 = Required (0 only applies on Enterprise/Education, so it is not used).
+verified: false
+actions:
+  - type: registry
+    hive: HKLM
+    key: SOFTWARE\Policies\Microsoft\Windows\DataCollection
+    value: AllowTelemetry
+    kind: dword
+    set: 1

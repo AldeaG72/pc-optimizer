@@ -4,6 +4,7 @@
   import Search from "@lucide/svelte/icons/search";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import X from "@lucide/svelte/icons/x";
+  import CleanupPanel from "../components/CleanupPanel.svelte";
   import type { Category, Recipe } from "../lib/backend";
   import { naText, stateText } from "../lib/describe";
   import { prefs, t, ui } from "../lib/state.svelte";
@@ -126,14 +127,18 @@
                 <h2>{t(`app.cat.${catKey(view)}`)}</h2>
                 <div class="muted small">{t(`app.catdesc.${catKey(view)}`)}</div>
               </div>
-              <button class="btn" title={t("app.tweaks.recommended_hint")} onclick={() => tickRecommended(view === "recommended" ? null : view)}>
-                <BadgeCheck size={15} aria-hidden="true" />
-                {t("app.tweaks.recommended")}
-              </button>
+              {#if view !== "cleanup"}
+                <button class="btn" title={t("app.tweaks.recommended_hint")} onclick={() => tickRecommended(view === "recommended" ? null : view)}>
+                  <BadgeCheck size={15} aria-hidden="true" />
+                  {t("app.tweaks.recommended")}
+                </button>
+              {/if}
             </div>
           {/if}
 
-          {#if rows.length === 0}
+          {#if !query && view === "cleanup"}
+            <CleanupPanel recipes={rows} onSelect={(id) => (selectedId = id)} />
+          {:else if rows.length === 0}
             <div class="card note muted">{query ? t("app.tweaks.no_match", { query }) : t("app.tweaks.none")}</div>
           {:else}
             <ul class="card list">
@@ -148,15 +153,19 @@
                       {#if tg}<span class="chip tag {tg.tone}">{t(tg.key)}</span>{/if}
                     </span>
                   </button>
-                  <button
-                    class="switch"
-                    class:on={switchOn(r)}
-                    role="switch"
-                    aria-checked={switchOn(r)}
-                    aria-label={r.name}
-                    disabled={!switchEnabled(r)}
-                    onclick={() => toggle(r)}
-                  ><span></span></button>
+                  {#if r.cleanup}
+                    <button class="btn" onclick={() => { query = ""; view = "cleanup"; }}>{t("app.clean.open")}</button>
+                  {:else}
+                    <button
+                      class="switch"
+                      class:on={switchOn(r)}
+                      role="switch"
+                      aria-checked={switchOn(r)}
+                      aria-label={r.name}
+                      disabled={!switchEnabled(r)}
+                      onclick={() => toggle(r)}
+                    ><span></span></button>
+                  {/if}
                 </li>
               {/each}
             </ul>

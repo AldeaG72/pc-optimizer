@@ -1,0 +1,35 @@
+id: debloat.app-solitaire
+version: 1
+name:
+  ro: "Elimină aplicația Solitaire"
+  en: "Remove the Solitaire app"
+description:
+  ro: "Elimină aplicația preinstalată Solitaire (jocuri de cărți) pentru contul tău. Comutatorul o reinstalează din copia pe care o păstrează Windows, fără internet."
+  en: "Removes the preinstalled Solitaire app (card games) for your account. The switch reinstalls it from the copy Windows keeps, without the internet."
+category: debloat
+risk: safe
+# Owner decision (2026-11-22): one switch per app, none in "Recommended".
+profiles: []
+impact:
+  ro: Foarte mic (mai puține aplicații în fundal și în Start)
+  en: Very low (fewer apps in the background and in Start)
+why:
+  ro: "Aplicațiile preinstalate pe care nu le folosești pot rula în fundal, primesc update-uri și ocupă loc. Dacă nu folosești Solitaire, o poți scoate."
+  en: "Preinstalled apps you do not use can run in the background, get updates and take up space. If you do not use Solitaire, you can remove it."
+breaks:
+  ro: "Aplicația Solitaire nu mai e disponibilă până o reinstalezi din comutator."
+  en: "The Solitaire app is not available until you reinstall it with the switch."
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  # Removing and re-registering provisioned (preinstalled) apps.
+  - https://learn.microsoft.com/en-us/windows/application-management/remove-provisioned-apps-during-update
+  - https://learn.microsoft.com/en-us/powershell/module/appx/add-appxpackage
+# Only removed when Windows keeps a copy (provisioned), so undo works offline; tested in CI
+# with Feedback Hub (provisioned on the runner). Package names change rarely but are not a
+# documented contract: stays `false`.
+verified: false
+actions:
+  - type: appx
+    package: Microsoft.MicrosoftSolitaireCollection

@@ -6,14 +6,15 @@ use std::path::Path;
 
 use pco_core::backend::memory::{MemoryAppx, MemoryPower, MemoryRegistry, MemoryServices};
 use pco_core::backend::{
-    BackendError, RegData, RegRead, RegistryBackend, ServiceBackend, ServiceStart, ServiceState,
+    AppxState, BackendError, PowerValues, RegData, RegRead, RegistryBackend, ServiceBackend,
+    ServiceStart, ServiceState,
 };
 use pco_core::engine::{
-    ApplyOutcome, Engine, EngineError, NotApplicable, RecipeStatus, UndoOutcome,
+    ApplyOutcome, Engine, EngineError, NotApplicable, RecipeStatus, UndoOutcome, NET_ADAPTER_CLASS,
 };
 use pco_core::guard::{PlatformMismatch, SystemInfo};
 use pco_core::journal::{Journal, SessionKind, Status};
-use pco_core::recipe::{self, Edition, Hive, Recipe, RegValue};
+use pco_core::recipe::{self, Action, Edition, Hive, Recipe, RegValue};
 
 const HKCU: Hive = Hive::CurrentUser;
 const KEY: &str = r"Software\PcOptimizerTest\Engine";
@@ -61,6 +62,7 @@ struct World {
     power: MemoryPower,
     apps: MemoryAppx,
     journal: Journal,
+    sys: SystemInfo,
 }
 
 impl World {
@@ -71,11 +73,12 @@ impl World {
             power: MemoryPower::new(BALANCED),
             apps: MemoryAppx::new(),
             journal: Journal::open_in_memory().unwrap(),
+            sys: SYS,
         }
     }
 
     fn engine(&mut self) -> Engine<'_> {
-        Engine::new(&mut self.reg, &mut self.svc, &mut self.journal, SYS)
+        Engine::new(&mut self.reg, &mut self.svc, &mut self.journal, self.sys)
             .with_power(&mut self.power)
             .with_apps(&mut self.apps)
     }
@@ -684,17 +687,68 @@ fn every_repository_recipe_applies_and_undoes_exactly() {
         delayed_auto_start: false,
     };
 
-    for r in &recipes {
+    let text = |s: &str| RegData::from_value(&RegValue::String(s.into()));
+    for r in recipes.iter().filter(|r| !r.is_cleanup()) {
         // An empty registry is the hardest case: every key must be created and removed.
-        // Only the Windows default Sticky Keys value is there (the recipe requires it).
-        let mut w = World::new(MemoryRegistry::new().with_value(
-            HKCU,
-            r"Control Panel\Accessibility\StickyKeys",
-            "Flags",
-            RegData::from_value(&RegValue::String("510".into())),
-        ));
+        // Only the Windows defaults that `only_if` recipes require are there.
+        let mut reg = MemoryRegistry::new()
+            .with_value(
+                HKCU,
+                r"Control Panel\Accessibility\StickyKeys",
+                "Flags",
+                text("510"),
+            )
+            .with_value(
+                HKCU,
+                r"Control Panel\Accessibility\Keyboard Response",
+                "Flags",
+                text("126"),
+            )
+            .with_value(HKCU, r"Control Panel\Mouse", "MouseSpeed", text("1"))
+            .with_value(HKCU, r"Control Panel\Mouse", "MouseThreshold1", text("6"))
+            .with_value(HKCU, r"Control Panel\Mouse", "MouseThreshold2", text("10"));
+        let mut power = MemoryPower::new(BALANCED);
+        let mut apps = MemoryAppx::new();
+        // Whatever each recipe needs to exist on the PC: a plan, a setting at another
+        // value, a physical adapter offering the setting, the app installed.
+        for action in &r.actions {
+            match action {
+                Action::PowerPlan(p) => power = power.with_scheme(&p.scheme),
+                Action::PowerSetting(p) => {
+                    let other = |v: Option<u32>| v.map_or(1, |v| u32::from(v == 0));
+                    power = power.with_setting(
+                        BALANCED,
+                        &p.subgroup,
+                        &p.setting,
+                        PowerValues {
+                            ac: other(p.ac),
+                            dc: other(p.dc),
+                        },
+                    );
+                }
+                Action::NetAdapter(n) => {
+                    let key = format!("{NET_ADAPTER_CLASS}\\0000");
+                    reg = reg
+                        .with_value(Hive::LocalMachine, &key, "Characteristics", dword(0x84))
+                        .with_key(
+                            Hive::LocalMachine,
+                            &format!("{key}\\Ndi\\Params\\{}", n.value),
+                        );
+                }
+                Action::Appx(a) => apps = apps.with_app(&a.package, AppxState::Installed),
+                _ => {}
+            }
+        }
+        let mut w = World::new(reg);
         w.svc = MemoryServices::new().with_service("Fax", manual);
+        w.power = power;
+        w.apps = apps;
+        w.sys.form_factor = match r.platform.form_factor {
+            pco_core::recipe::FormFactor::Any => None,
+            f => Some(f),
+        };
         let (reg0, svc0) = (w.reg.clone(), w.svc.clone());
+        let (power0, apps0) = (w.power.clone(), w.apps.clone());
 
         let report = w.engine().apply(&[r]).unwrap();
         assert!(
@@ -721,5 +775,7 @@ fn every_repository_recipe_applies_and_undoes_exactly() {
             "{}: services differ after undo",
             r.id
         );
+        assert!(w.power.same_contents(&power0), "{}: power differs", r.id);
+        assert!(w.apps.same_contents(&apps0), "{}: apps differ", r.id);
     }
 }

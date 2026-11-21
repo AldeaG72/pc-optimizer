@@ -7,6 +7,7 @@
 
 pub mod backend;
 pub mod bench;
+pub mod cleanup;
 pub mod engine;
 pub mod guard;
 pub mod health;

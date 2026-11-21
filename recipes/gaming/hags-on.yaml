@@ -1,0 +1,38 @@
+id: gaming.hags-on
+version: 1
+name:
+  ro: Programarea GPU accelerată hardware (HAGS) pornită
+  en: Hardware-accelerated GPU scheduling (HAGS) on
+description:
+  ro: Placa video își programează singură lucrul, în loc să aștepte procesorul. Doar pe plăcile și driverele care o suportă.
+  en: The graphics card schedules its own work instead of waiting for the CPU. Only on cards and drivers that support it.
+category: gaming
+risk: safe
+# SPEC 4.2: recommended only after a benchmark, so not in "Recommended".
+profiles: []
+impact:
+  ro: Mic; uneori mai puțină latență, alteori nicio diferență (măsoară înainte și după)
+  en: Low; sometimes less latency, sometimes no difference (measure before and after)
+why:
+  ro: Microsoft a introdus HAGS ca să mute programarea lucrului de pe procesor pe un procesor dedicat din placa video. E și o cerință pentru generarea de cadre (DLSS Frame Generation) la NVIDIA.
+  en: Microsoft introduced HAGS to move GPU work scheduling from the CPU to a dedicated processor on the graphics card. NVIDIA also needs it for frame generation (DLSS Frame Generation).
+breaks:
+  ro: Pe unele sisteme, sacade sau probleme în programe de captură sau de măsurare (PIX). Pe plăcile fără suport nu are niciun efect. Cere restart.
+  en: On some systems, stutter or issues in capture or profiling tools (PIX). On cards without support it has no effect. Needs a restart.
+requires_restart: reboot
+platform:
+  min_build: 22000
+sources:
+  - https://devblogs.microsoft.com/directx/hardware-accelerated-gpu-scheduling/
+  - https://devblogs.microsoft.com/pix/known-issues/
+  # The registry value behind the Settings toggle (community answers on Microsoft Q&A).
+  - https://learn.microsoft.com/en-us/answers/questions/4358192/where-did-hardware-accellerated-gpu-scheduling-go
+# Feature documented; the value (2 = on) only by the community. Stays `false`.
+verified: false
+actions:
+  - type: registry
+    hive: HKLM
+    key: SYSTEM\CurrentControlSet\Control\GraphicsDrivers
+    value: HwSchMode
+    kind: dword
+    set: 2

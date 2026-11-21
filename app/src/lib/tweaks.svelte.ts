@@ -53,6 +53,7 @@ export function switchOn(r: Recipe): boolean {
 
 /** The switch can be used (not for recipes that do not apply or are already in place). */
 export function switchEnabled(r: Recipe): boolean {
+  if (r.cleanup) return false;
   return r.status.code !== "not_applicable" && r.status.code !== "already_in_place" && r.status.code !== "error";
 }
 

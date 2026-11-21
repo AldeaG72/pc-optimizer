@@ -1,0 +1,30 @@
+id: cleanup.recycle-bin
+version: 1
+name:
+  ro: Coșul de gunoi
+  en: Recycle Bin
+description:
+  ro: Golește Coșul de gunoi, pe toate unitățile.
+  en: Empties the Recycle Bin, on every drive.
+category: cleanup
+risk: moderate
+profiles: []
+impact:
+  ro: Spațiu pe disc eliberat; fără efect asupra FPS
+  en: Disk space freed; no effect on FPS
+why:
+  ro: Fișierele șterse stau în Coș și ocupă loc până îl golești. Storage Sense îl golește la fel, automat.
+  en: Deleted files stay in the Recycle Bin and take up space until you empty it. Storage Sense empties it the same way, automatically.
+breaks:
+  ro: Nu se poate anula. Fișierele din Coș dispar definitiv; uită-te întâi în Coș dacă nu ești sigur.
+  en: Cannot be undone. Files in the Recycle Bin are gone for good; look inside first if you are not sure.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  - https://support.microsoft.com/en-us/windows/experience/storage-filemanagement/manage-drive-space-with-storage-sense
+  - https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shemptyrecyclebinw
+verified: false
+actions:
+  - type: cleanup
+    target: recycle-bin

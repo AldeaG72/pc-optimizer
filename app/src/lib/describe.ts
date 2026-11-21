@@ -45,3 +45,20 @@ export function naText(r: NotApplicableReason): string {
       return t(`app.na.${r.code}`);
   }
 }
+
+/** "1,5 GB" / "1.5 GB": binary units, one decimal from MB up, in the interface language. */
+export function formatBytes(bytes: number, lang: "ro" | "en"): string {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const digits = unit >= 2 ? 1 : 0;
+  const text = new Intl.NumberFormat(lang === "ro" ? "ro-RO" : "en-US", {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: 0,
+  }).format(value);
+  return `${text} ${units[unit]}`;
+}

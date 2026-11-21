@@ -5,6 +5,7 @@
 
 use pco_core::backend::memory::{MemoryAppx, MemoryPower, MemoryRegistry, MemoryServices};
 use pco_core::backend::{RegData, RegRead, RegistryBackend, ServiceStart, ServiceState};
+use pco_core::cleanup::MemoryCleanup;
 use pco_core::guard::{Arch, BlockedProcesses, Host};
 use pco_core::journal::{EntryKind, Journal, NewEntry, SessionKind};
 use pco_core::recipe::{self, Edition, Hive, RegValue};
@@ -22,6 +23,7 @@ struct World {
     svc: MemoryServices,
     power: MemoryPower,
     apps: MemoryAppx,
+    cleanup: MemoryCleanup,
     journal: Journal,
     host: Host,
     running: Vec<String>,
@@ -47,6 +49,10 @@ impl World {
             ),
             power: MemoryPower::new("381b4222-f694-41f0-9685-ff5bb260df2e"),
             apps: MemoryAppx::new(),
+            cleanup: MemoryCleanup {
+                admin: true,
+                ..MemoryCleanup::default()
+            },
             journal: Journal::open_in_memory().unwrap(),
             host: Host {
                 build: 26100,
@@ -67,6 +73,7 @@ impl World {
             services: &mut self.svc,
             power: &mut self.power,
             apps: &mut self.apps,
+            cleanup: &mut self.cleanup,
             journal: &mut self.journal,
             host: self.host.clone(),
             running: self.running.clone(),
@@ -434,4 +441,86 @@ fn restore_point_first_when_asked() {
             restart: Restart::None
         })
     );
+}
+
+#[test]
+fn cleans_system_folders_only_for_cleanup_recipes() {
+    let mut w = World::new();
+    w.cleanup
+        .sizes
+        .insert(pco_core::recipe::CleanupTarget::WindowsTemp, 4096);
+    w.cleanup
+        .sizes
+        .insert(pco_core::recipe::CleanupTarget::UserTemp, 10);
+    let events = w.send(Request::Clean {
+        ids: vec!["cleanup.windows-temp".into(), "cleanup.user-temp".into()],
+    });
+    let results: Vec<&Outcome> = events
+        .iter()
+        .filter_map(|e| match e {
+            Event::Result { outcome, .. } => Some(outcome),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        results[0],
+        &Outcome::Cleaned {
+            freed_bytes: 4096,
+            deleted: 1,
+            skipped: 0
+        }
+    );
+    // The user's own temporary files are the app's job, never the elevated helper's.
+    assert_eq!(
+        results[1],
+        &Outcome::Cleaned {
+            freed_bytes: 0,
+            deleted: 0,
+            skipped: 0
+        }
+    );
+    assert_eq!(
+        w.cleanup.sizes[&pco_core::recipe::CleanupTarget::UserTemp],
+        10
+    );
+
+    // A tweak id is not a cleanup, and a cleanup id cannot be applied.
+    let events = w.send(Request::Clean {
+        ids: vec![MODE.into()],
+    });
+    assert!(matches!(
+        events.last(),
+        Some(Event::Refused {
+            reason: Refusal::UnknownRecipe(_)
+        })
+    ));
+    let events = w.send(apply(&["cleanup.windows-temp"]));
+    assert!(matches!(
+        events.last(),
+        Some(Event::Refused {
+            reason: Refusal::UnknownRecipe(_)
+        })
+    ));
+    // Not elevated: blocked, nothing deleted.
+    w.host.elevated = false;
+    let events = w.send(Request::Clean {
+        ids: vec!["cleanup.windows-temp".into()],
+    });
+    assert!(matches!(
+        events.last(),
+        Some(Event::Blocked {
+            reason: BlockReason::NeedsAdmin
+        })
+    ));
+}
+
+#[test]
+fn clean_requests_parse_with_ids_only() {
+    assert_eq!(
+        parse_request(r#"{"v":1,"op":"clean","ids":["cleanup.windows-temp"]}"#),
+        Ok(Request::Clean {
+            ids: vec!["cleanup.windows-temp".into()]
+        })
+    );
+    assert!(parse_request(r#"{"v":1,"op":"clean","ids":["cleanup.x"],"path":"C:\\"}"#).is_err());
 }

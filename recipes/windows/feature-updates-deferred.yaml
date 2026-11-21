@@ -1,0 +1,44 @@
+id: windows.feature-updates-deferred
+version: 1
+name:
+  ro: Versiunile mari de Windows amânate 180 de zile
+  en: Big Windows versions deferred by 180 days
+description:
+  ro: Update-urile de funcții (versiunea nouă de Windows, o dată pe an) vin cu 180 de zile după lansare. Update-urile de securitate vin normal, în fiecare lună.
+  en: Feature updates (the new Windows version, once a year) arrive 180 days after release. Security updates keep arriving every month as usual.
+category: windows
+risk: safe
+# Owner decision (2026-11-22): 180 days. A choice, not a default: not in "Recommended".
+profiles: []
+impact:
+  ro: Fără efect asupra FPS; mai puține surprize (drivere sau jocuri stricate de o versiune nouă)
+  en: No effect on FPS; fewer surprises (drivers or games broken by a new version)
+why:
+  ro: O versiune mare nouă poate strica drivere, jocuri sau tweak-uri în primele luni. După 6 luni, cele mai multe probleme sunt reparate.
+  en: A big new version can break drivers, games or tweaks in its first months. After 6 months, most problems are fixed.
+breaks:
+  ro: Funcțiile noi ale Windows ajung mai târziu. Windows arată „Unele setări sunt gestionate de organizația ta” la Windows Update.
+  en: New Windows features arrive later. Windows shows “Some settings are managed by your organization” in Windows Update.
+requires_restart: none
+platform:
+  min_build: 22000
+  editions: [pro, enterprise, education]
+sources:
+  - https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-update
+  - https://learn.microsoft.com/en-us/windows/deployment/update/waas-configure-wufb
+# Policy and values documented (Update/DeferFeatureUpdatesPeriodInDays, 0–365). Security
+# updates are not deferred: the safety deny-list keeps the quality-update values out.
+verified: false
+actions:
+  - type: registry
+    hive: HKLM
+    key: SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate
+    value: DeferFeatureUpdates
+    kind: dword
+    set: 1
+  - type: registry
+    hive: HKLM
+    key: SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate
+    value: DeferFeatureUpdatesPeriodInDays
+    kind: dword
+    set: 180

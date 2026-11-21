@@ -3,6 +3,7 @@
 //! drive it with in-memory backends on any OS.
 
 use pco_core::backend::{AppxBackend, PowerBackend, RegistryBackend, ServiceBackend};
+use pco_core::cleanup::{self, CleanReport, CleanupBackend};
 use pco_core::engine::{
     self, ApplyOutcome, Engine, RecipePlan, RecipeStatus, Snapshot, UndoOutcome,
 };
@@ -32,6 +33,8 @@ pub struct Env<'a> {
     /// Creates a Windows restore point: `Ok(None)` created, `Ok(Some(why))` skipped by
     /// Windows (e.g. one was made in the last 24 hours), `Err` failed.
     pub restore_point: &'a mut dyn FnMut() -> Result<Option<String>, String>,
+    /// System folders only (`C:\Windows\Temp`).
+    pub cleanup: &'a mut dyn CleanupBackend,
 }
 
 impl Env<'_> {
@@ -73,8 +76,13 @@ fn run(
 
     // Only recipes built into the helper, for apply and for undo.
     let ids: Vec<String> = match request {
-        Request::Apply { ids, .. } | Request::Undo { ids } => {
-            if let Some(unknown) = ids.iter().find(|id| env.recipe(id).is_none()) {
+        Request::Apply { ids, .. } | Request::Undo { ids } | Request::Clean { ids } => {
+            // A cleanup id must name a cleanup recipe, and apply/undo ids must not.
+            let clean = matches!(request, Request::Clean { .. });
+            if let Some(unknown) = ids
+                .iter()
+                .find(|id| env.recipe(id).is_none_or(|r| r.is_cleanup() != clean))
+            {
                 emit(Event::Refused {
                     reason: Refusal::UnknownRecipe(unknown.clone()),
                 });
@@ -94,6 +102,11 @@ fn run(
 
     if let Err(b) = check_no_games(&env.running, &env.blocked) {
         emit(Event::Blocked { reason: block(&b) });
+        return Ok(());
+    }
+
+    if matches!(request, Request::Clean { .. }) {
+        clean(env, &ids, emit);
         return Ok(());
     }
 
@@ -237,6 +250,49 @@ fn run(
         },
     });
     Ok(())
+}
+
+/// Built-in cleanup recipes, system folders only: the app cleans the user's own places
+/// itself, without administrator rights, so nothing elevated works in a user folder.
+fn clean(env: &mut Env<'_>, ids: &[String], emit: &mut dyn FnMut(Event)) {
+    if !env.host.elevated {
+        emit(Event::Blocked {
+            reason: BlockReason::NeedsAdmin,
+        });
+        return;
+    }
+    for id in ids {
+        let Some(targets) = env.recipe(id).map(Recipe::cleanup_targets) else {
+            continue;
+        };
+        emit(Event::Started { id: id.clone() });
+        let mut report = CleanReport::default();
+        let mut error = None;
+        for target in targets.into_iter().filter(|t| cleanup::needs_admin(*t)) {
+            match env.cleanup.clean(target) {
+                Ok(r) => report.add(r),
+                Err(e) => error = Some(e.to_string()),
+            }
+        }
+        let outcome = match error {
+            Some(error) => Outcome::Failed {
+                error,
+                rolled_back: false,
+            },
+            None => Outcome::Cleaned {
+                freed_bytes: report.freed_bytes,
+                deleted: report.deleted,
+                skipped: report.skipped,
+            },
+        };
+        emit(Event::Result {
+            id: id.clone(),
+            outcome,
+        });
+    }
+    emit(Event::Done {
+        restart: Restart::None,
+    });
 }
 
 /// The entry's recipe is built in, its action index exists, and both snapshots point at

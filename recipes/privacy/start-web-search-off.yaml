@@ -1,0 +1,37 @@
+id: privacy.start-web-search-off
+version: 1
+name:
+  ro: Căutarea pe web și sugestiile din Start oprite
+  en: Web search and suggestions in Start off
+description:
+  ro: Căutarea din Start și din bara de activități caută doar pe PC, fără rezultate și sugestii Bing.
+  en: Search in Start and on the taskbar only searches this PC, without Bing results and suggestions.
+category: privacy
+risk: safe
+profiles: [recommended, laptop]
+impact:
+  ro: Mic; căutarea răspunde mai repede și nu trimite ce scrii
+  en: Low; search answers faster and does not send what you type
+why:
+  ro: Tot ce scrii în căutarea Windows ajunge la Bing pentru sugestii. Pentru a găsi aplicații și fișiere nu ai nevoie de asta.
+  en: Everything you type in Windows search goes to Bing for suggestions. Finding apps and files does not need that.
+breaks:
+  ro: Căutarea Windows nu mai arată rezultate de pe web. Are efect după repornirea Explorer-ului.
+  en: Windows search no longer shows web results. Takes effect after restarting Explorer.
+requires_restart: explorer
+platform:
+  min_build: 22000
+sources:
+  - https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-windowsexplorer
+  # Its effect on web suggestions in Start (community answers on Microsoft Q&A).
+  - https://learn.microsoft.com/en-us/answers/questions/792218/windows-11-disable-web-search-results-from-start-m
+# The policy is documented (DisableSearchBoxSuggestions, user scope); its effect on Start's
+# web results only by the community. Stays `false`.
+verified: false
+actions:
+  - type: registry
+    hive: HKCU
+    key: Software\Policies\Microsoft\Windows\Explorer
+    value: DisableSearchBoxSuggestions
+    kind: dword
+    set: 1

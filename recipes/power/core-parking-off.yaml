@@ -1,0 +1,37 @@
+id: power.core-parking-off
+version: 1
+name:
+  ro: Nucleele procesorului mereu active (fără „core parking”)
+  en: CPU cores always active (no core parking)
+description:
+  ro: Pe priză, Windows nu mai „parchează” (adoarme) nucleele procesorului în planul de alimentare activ.
+  en: When plugged in, Windows no longer parks (puts to sleep) CPU cores in the active power plan.
+category: power
+risk: moderate
+# SPEC 4.2: moderate, desktop only; not in "Recommended".
+profiles: []
+impact:
+  ro: Mic; uneori ajută la sacade în jocurile care folosesc multe nuclee
+  en: Low; sometimes helps stutter in games that use many cores
+why:
+  ro: Un nucleu „parcat” are nevoie de un moment ca să pornească. Cu nucleele mereu active, jocul nu așteaptă după ele. Microsoft descrie exact această setare (CPMINCORES = 100) pentru a opri parcarea nucleelor.
+  en: A parked core needs a moment to start. With every core active, the game does not wait for them. Microsoft describes exactly this setting (CPMINCORES = 100) to turn core parking off.
+breaks:
+  ro: Consum de curent și temperaturi mai mari când PC-ul stă degeaba. Se schimbă doar valoarea „pe priză”.
+  en: Higher power use and temperatures when the PC is idle. Only the “plugged in” value changes.
+requires_restart: none
+platform:
+  min_build: 22000
+  form_factor: desktop
+sources:
+  - https://learn.microsoft.com/en-us/windows-server/administration/performance-tuning/hardware/power/power-performance-tuning
+  - https://learn.microsoft.com/en-us/windows-hardware/customize/power-settings/static-configuration-options-for-core-parking
+# Setting and value documented (Windows Server tuning guide); tested in CI. Stays `false`
+# until checked on Windows 11 desktops by beta testers.
+verified: false
+actions:
+  # Processor power management → minimum unparked cores (CPMINCORES), plugged in: 100%.
+  - type: power-setting
+    subgroup: 54533251-82be-4824-96c1-47b60b740d00
+    setting: 0cc5b647-c1df-4637-891a-dec35c318583
+    ac: 100

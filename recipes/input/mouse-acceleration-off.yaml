@@ -1,0 +1,53 @@
+id: input.mouse-acceleration-off
+version: 1
+name:
+  ro: Accelerația mouse-ului oprită („Îmbunătățire precizie indicator”)
+  en: Mouse acceleration off (“Enhance pointer precision”)
+description:
+  ro: Cursorul se mișcă la fel de mult oricât de repede miști mouse-ul, ca opțiunea „Îmbunătățire precizie indicator” debifată.
+  en: The pointer moves the same distance however fast you move the mouse, like unticking “Enhance pointer precision”.
+category: input
+risk: safe
+profiles: [recommended, laptop]
+impact:
+  ro: Mare pentru țintire constantă (memoria musculară), fără efect asupra FPS
+  en: High for consistent aim (muscle memory), no effect on FPS
+why:
+  ro: Cu accelerația pornită, aceeași mișcare a mâinii duce cursorul mai departe dacă e făcută mai repede, deci țintirea nu mai e la fel de fiecare dată. Majoritatea jucătorilor competitivi o opresc.
+  en: With acceleration on, the same hand movement takes the pointer further when done faster, so aiming is not the same every time. Most competitive players turn it off.
+breaks:
+  ro: Pe un ecran mare, cursorul poate părea lent în Windows; crește viteza indicatorului dacă e nevoie. Are efect după deconectare.
+  en: On a large screen the pointer may feel slow in Windows; raise the pointer speed if needed. Takes effect after signing out.
+requires_restart: signout
+platform:
+  min_build: 22000
+sources:
+  # SPI_SETMOUSE: the two thresholds and the acceleration.
+  - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-systemparametersinfoa
+  # Where SPI_SETMOUSE stores them (MouseSpeed, MouseThreshold1, MouseThreshold2).
+  - https://learn.microsoft.com/en-us/previous-versions/windows/embedded/ms940383(v=msdn.10)
+# The registry location is documented only for Windows CE. Only applied if the three values
+# are the Windows defaults (1, 6, 10), so a choice the user made is never overwritten.
+verified: false
+actions:
+  - type: registry
+    hive: HKCU
+    key: Control Panel\Mouse
+    value: MouseSpeed
+    kind: string
+    set: "0"
+    only_if: "1"
+  - type: registry
+    hive: HKCU
+    key: Control Panel\Mouse
+    value: MouseThreshold1
+    kind: string
+    set: "0"
+    only_if: "6"
+  - type: registry
+    hive: HKCU
+    key: Control Panel\Mouse
+    value: MouseThreshold2
+    kind: string
+    set: "0"
+    only_if: "10"

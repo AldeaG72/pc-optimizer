@@ -1,0 +1,35 @@
+id: debloat.copilot-off
+version: 1
+name:
+  ro: Copilot oprit (politica Windows)
+  en: Copilot off (Windows policy)
+description:
+  ro: Oprește Copilot din Windows prin politica oficială „Turn off Windows Copilot”, pentru contul tău.
+  en: Turns off Windows Copilot through the official “Turn off Windows Copilot” policy, for your account.
+category: debloat
+risk: safe
+# Owner decision (2026-11-22): Copilot, Widgets and Recall policies are in "Recommended".
+profiles: [recommended, laptop]
+impact:
+  ro: Foarte mic; mai puține lucruri care pornesc în fundal
+  en: Very low; fewer things starting in the background
+why:
+  ro: Dacă nu folosești asistentul, nu are de ce să ruleze sau să apară pe taskbar.
+  en: If you do not use the assistant, it has no reason to run or sit on the taskbar.
+breaks:
+  ro: Copilot din Windows nu mai e disponibil. Microsoft spune că politica nu acoperă noua aplicație Copilot; pe aceea o poți elimina separat („Elimină aplicația Copilot”). Windows poate afișa „gestionat de organizația ta”.
+  en: Windows Copilot is no longer available. Microsoft says the policy does not cover the new Copilot app; remove that one separately (“Remove the Copilot app”). Windows may show “managed by your organization”.
+requires_restart: explorer
+platform:
+  min_build: 22000
+sources:
+  - https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-windowsai
+# Documented (WindowsAI/TurnOffWindowsCopilot, user scope), though deprecated by Microsoft.
+verified: false
+actions:
+  - type: registry
+    hive: HKCU
+    key: Software\Policies\Microsoft\Windows\WindowsCopilot
+    value: TurnOffWindowsCopilot
+    kind: dword
+    set: 1

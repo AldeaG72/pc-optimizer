@@ -1,0 +1,35 @@
+id: power.high-performance-plan
+version: 1
+name:
+  ro: Planul de alimentare „Performanță ridicată”
+  en: “High performance” power plan
+description:
+  ro: Activează planul de alimentare „Performanță ridicată” al Windows (dacă există pe acest PC).
+  en: Turns on the Windows “High performance” power plan (if this PC has it).
+category: power
+risk: safe
+# SPEC 4.2: chosen after a benchmark on desktop PCs, so not in "Recommended". The interface
+# suggests measuring before and after.
+profiles: []
+impact:
+  ro: Mic spre mediu, depinde de procesor (măsoară înainte și după)
+  en: Low to medium, depends on the CPU (measure before and after)
+why:
+  ro: Procesorul rămâne la frecvențe mari și se trezește mai repede din stările de economisire, ceea ce poate reduce sacadele pe unele procesoare. Pe altele, „Echilibrat” e la fel de rapid; de aceea merită o măsurare.
+  en: The CPU stays at high clocks and wakes from power-saving states faster, which can reduce stutter on some CPUs. On others, “Balanced” is just as fast; that is why a measurement is worth it.
+breaks:
+  ro: Consum de curent și temperaturi puțin mai mari când PC-ul stă degeaba.
+  en: Slightly higher power use and temperatures when the PC is idle.
+requires_restart: none
+platform:
+  min_build: 22000
+  form_factor: desktop
+sources:
+  # The built-in plans and their fixed GUIDs (powercfg /list).
+  - https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/powercfg-command-line-options
+  - https://learn.microsoft.com/en-us/windows-server/administration/performance-tuning/hardware/power/power-performance-tuning
+# The plan GUID is documented; tested in CI (switch → undo). Owner check still pending.
+verified: false
+actions:
+  - type: power-plan
+    scheme: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c

@@ -270,7 +270,7 @@ fn built_in_recipes_match_the_repository() {
     let a: Vec<_> = embedded.iter().map(|r| (&r.id, &r.actions)).collect();
     let b: Vec<_> = on_disk.iter().map(|r| (&r.id, &r.actions)).collect();
     assert_eq!(a, b);
-    assert_eq!(embedded.len(), 6);
+    assert_eq!(embedded.len(), 39);
 }
 
 // --- arguments ----------------------------------------------------------------------------
@@ -386,9 +386,9 @@ fn apply_then_undo_all() {
         out.contains("+ gaming.game-dvr-off: aplicat (2 modificări)"),
         "{out}"
     );
-    // Sticky Keys needs a sign-out, the strongest restart among these recipes.
+    // HAGS needs a reboot, the strongest restart among these recipes.
     assert!(
-        out.contains("Unele modificări au efect abia după: delogare și logare din nou."),
+        out.contains("Unele modificări au efect abia după: repornirea PC-ului."),
         "{out}"
     );
     let (_, again) = w.ro(apply(&[DVR]));

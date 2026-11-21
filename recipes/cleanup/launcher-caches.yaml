@@ -1,0 +1,31 @@
+id: cleanup.launcher-caches
+version: 1
+name:
+  ro: Cache-ul web al Epic Games Launcher
+  en: Epic Games Launcher web cache
+description:
+  ro: Șterge folderele „webcache” ale Epic Games Launcher, exact cele pe care le indică Epic. Jocurile și salvările nu sunt atinse.
+  en: Deletes the Epic Games Launcher “webcache” folders, exactly the ones Epic points to. Games and saves are not touched.
+category: cleanup
+risk: safe
+profiles: []
+impact:
+  ro: Spațiu pe disc eliberat; poate repara un launcher care se încarcă greu
+  en: Disk space freed; can fix a launcher that loads slowly
+why:
+  ro: Epic recomandă ștergerea acestui cache când launcher-ul se blochează sau se încarcă greu. Îl refac singur la următoarea pornire.
+  en: Epic recommends deleting this cache when the launcher hangs or loads slowly. It rebuilds it on the next start.
+breaks:
+  ro: Nu se poate anula. Prima pornire a launcher-ului după curățare e puțin mai lentă. Închide launcher-ul întâi.
+  en: Cannot be undone. The launcher's first start after cleaning is a little slower. Close the launcher first.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  - https://www.epicgames.com/help/c-32735058/a20673770
+# Run by the app itself, without administrator rights. Steam's web cache is left out: Valve
+# has no support page naming the folder.
+verified: false
+actions:
+  - type: cleanup
+    target: launcher-caches

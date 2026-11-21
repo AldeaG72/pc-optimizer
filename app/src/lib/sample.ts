@@ -1,7 +1,18 @@
 // Sample answers for when the interface runs outside the app (tests, browser previews).
 // Nothing here touches the PC.
 
-import type { BenchGame, HelperEvent, HelperRequest, HomeView, Recipe, Series, Verdict } from "./backend";
+import type {
+  BenchGame,
+  CleanResult,
+  CleanSize,
+  HelperEvent,
+  HelperRequest,
+  HomeView,
+  Outcome,
+  Recipe,
+  Series,
+  Verdict,
+} from "./backend";
 
 /** A laptop like the owner's (Stage 1 data), in Romanian. */
 export function sampleHome(): HomeView {
@@ -95,7 +106,48 @@ export function sampleRecipes(lang: Lang): Recipe[] {
       needsAdmin: true,
       cleanup: false,
     },
+    sampleCleanup("cleanup.user-temp", ro ? "Fișierele tale temporare" : "Your temporary files", false),
+    sampleCleanup("cleanup.windows-temp", ro ? "Fișierele temporare ale Windows" : "Windows temporary files", true),
   ];
+}
+
+function sampleCleanup(id: string, name: string, needsAdmin: boolean): Recipe {
+  return {
+    id,
+    name,
+    description: name,
+    category: "cleanup",
+    risk: "safe",
+    profiles: [],
+    impact: "",
+    why: "",
+    breaks: "",
+    restart: "none",
+    sources: [],
+    verified: false,
+    status: { code: "not_applicable", reason: { code: "cleanup" } },
+    changes: [],
+    needsAdmin,
+    cleanup: true,
+  };
+}
+
+/** Sample sizes: 1.5 GB of temporary files; the system folder needs admin to measure. */
+export function sampleCleanSizes(): CleanSize[] {
+  return [
+    { id: "cleanup.user-temp", bytes: 1_610_612_736, needsAdmin: false },
+    { id: "cleanup.windows-temp", bytes: null, needsAdmin: true },
+  ];
+}
+
+export function sampleCleanUser(ids: string[]): CleanResult[] {
+  return ids.map((id) => ({
+    id,
+    freedBytes: id === "cleanup.user-temp" ? 1_610_612_736 : 0,
+    deleted: id === "cleanup.user-temp" ? 120 : 0,
+    skipped: id === "cleanup.user-temp" ? 3 : 0,
+    error: null,
+  }));
 }
 
 /** Sample benchmark results kept in memory (what a real journal would hold). */
@@ -175,16 +227,17 @@ function sampleBenchEvents(request: Extract<HelperRequest, { op: "bench" }>): He
 export function sampleEvents(request: HelperRequest): HelperEvent[] {
   if (request.op === "bench") return sampleBenchEvents(request);
   const ids = request.op === "undo_all" ? [] : request.ids;
-  const undo = request.op !== "apply";
+  const outcome = (): Outcome =>
+    request.op === "clean"
+      ? { code: "cleaned", freed_bytes: 268_435_456, deleted: 40, skipped: 1 }
+      : request.op === "apply"
+        ? { code: "applied", changed: 1 }
+        : { code: "undone", restored: 1 };
   return [
     { event: "hello", version: 1 },
     ...ids.flatMap((id): HelperEvent[] => [
       { event: "started", id },
-      {
-        event: "result",
-        id,
-        outcome: undo ? { code: "undone", restored: 1 } : { code: "applied", changed: 1 },
-      },
+      { event: "result", id, outcome: outcome() },
     ]),
     { event: "done", restart: "none" },
   ];

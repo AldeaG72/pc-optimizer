@@ -1,0 +1,35 @@
+id: debloat.recall-off
+version: 1
+name:
+  ro: Recall oprit (fără capturi de ecran salvate)
+  en: Recall off (no screen snapshots saved)
+description:
+  ro: Windows nu mai salvează capturi ale ecranului pentru Recall, prin politica oficială „Turn off saving snapshots”. Doar pe PC-urile Copilot+ care au Recall.
+  en: Windows no longer saves screen snapshots for Recall, through the official “Turn off saving snapshots” policy. Only on Copilot+ PCs that have Recall.
+category: debloat
+risk: safe
+# Owner decision (2026-11-22): in "Recommended".
+profiles: [recommended, laptop]
+impact:
+  ro: Mic spre mediu pe PC-urile cu Recall (capturi continue, spațiu pe disc); nimic pe celelalte
+  en: Low to medium on PCs with Recall (continuous snapshots, disk space); nothing on others
+why:
+  ro: Recall face capturi de ecran la câteva secunde și le analizează, inclusiv în timp ce joci. Dacă nu îl folosești, e lucru și spațiu irosit.
+  en: Recall takes screen snapshots every few seconds and analyses them, also while you play. If you do not use it, that is wasted work and space.
+breaks:
+  ro: Recall nu mai salvează capturi. Microsoft spune că, la pornirea politicii, capturile salvate deja se șterg.
+  en: Recall no longer saves snapshots. Microsoft says snapshots already saved are deleted when the policy is turned on.
+requires_restart: none
+platform:
+  min_build: 26100
+sources:
+  - https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-windowsai
+# Documented: WindowsAI/DisableAIDataAnalysis (user and device scope), 24H2 and later.
+verified: false
+actions:
+  - type: registry
+    hive: HKCU
+    key: Software\Policies\Microsoft\Windows\WindowsAI
+    value: DisableAIDataAnalysis
+    kind: dword
+    set: 1

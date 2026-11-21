@@ -1,0 +1,38 @@
+id: input.filter-keys-hotkey-off
+version: 1
+name:
+  ro: Scurtătura „Taste filtru” oprită (Shift dreapta ținut 8 secunde)
+  en: Filter Keys shortcut off (right Shift held for 8 seconds)
+description:
+  ro: Ținerea apăsată a tastei Shift din dreapta nu mai pornește „Taste filtru” în mijlocul jocului. Funcția rămâne disponibilă în Setări.
+  en: Holding the right Shift key no longer turns on Filter Keys in the middle of a game. The feature stays available in Settings.
+category: input
+risk: safe
+profiles: [recommended, laptop]
+impact:
+  ro: Fără efect asupra FPS; scapă de o fereastră care te scoate din joc
+  en: No effect on FPS; avoids a window that throws you out of the game
+why:
+  ro: În jocuri, Shift e des ținut apăsat mult timp. După 8 secunde, Windows întreabă dacă pornești „Taste filtru” și scoate jocul din prim-plan.
+  en: In games, Shift is often held for a long time. After 8 seconds, Windows asks whether to turn on Filter Keys and takes the game out of focus.
+breaks:
+  ro: „Taste filtru” nu mai pornesc din tastatură; le poți porni din Setări › Accesibilitate › Tastatură.
+  en: Filter Keys no longer start from the keyboard; you can turn them on in Settings › Accessibility › Keyboard.
+requires_restart: signout
+platform:
+  min_build: 22000
+sources:
+  # FKF_HOTKEYACTIVE = 0x4; 126 (0x7E) without this bit = 122 (0x7A).
+  - https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-filterkeys
+  - https://learn.microsoft.com/en-us/windows/win32/dxtecharts/disabling-shortcut-keys-in-games
+# The bit is documented; the registry location is not. Applied only if the value is the
+# Windows default 126, like the Sticky Keys recipe.
+verified: false
+actions:
+  - type: registry
+    hive: HKCU
+    key: Control Panel\Accessibility\Keyboard Response
+    value: Flags
+    kind: string
+    set: "122"
+    only_if: "126"

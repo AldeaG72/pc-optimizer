@@ -1,0 +1,42 @@
+id: debloat.edge-background-off
+version: 1
+name:
+  ro: Edge nu mai rulează în fundal
+  en: Edge no longer runs in the background
+description:
+  ro: Edge nu mai pornește odată cu Windows („Startup boost”) și se închide de tot când îi închizi ferestrele. Edge rămâne instalat.
+  en: Edge no longer starts with Windows (“Startup boost”) and fully closes when you close its windows. Edge stays installed.
+category: debloat
+risk: safe
+# SPEC 4.2: Edge is only stopped in the background, never uninstalled.
+profiles: [recommended, laptop]
+impact:
+  ro: Mic; câteva procese și ceva memorie eliberate
+  en: Low; a few processes and some memory freed
+why:
+  ro: Edge își ține procese pornite ca să se deschidă mai repede, chiar dacă folosești alt browser.
+  en: Edge keeps processes running so it opens faster, even if you use another browser.
+breaks:
+  ro: Edge se deschide puțin mai încet. Aplicațiile care rulează în fundal prin Edge nu mai rulează după închiderea lui. Edge afișează „Browserul tău e gestionat de organizația ta”.
+  en: Edge opens a little slower. Apps that run in the background through Edge stop when it closes. Edge shows “Your browser is managed by your organization”.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  - https://learn.microsoft.com/en-us/deployedge/microsoft-edge-browser-policies/startupboostenabled
+  - https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/backgroundmodeenabled
+# Both policies documented (SOFTWARE\Policies\Microsoft\Edge, REG_DWORD, 0 = off).
+verified: false
+actions:
+  - type: registry
+    hive: HKLM
+    key: SOFTWARE\Policies\Microsoft\Edge
+    value: StartupBoostEnabled
+    kind: dword
+    set: 0
+  - type: registry
+    hive: HKLM
+    key: SOFTWARE\Policies\Microsoft\Edge
+    value: BackgroundModeEnabled
+    kind: dword
+    set: 0

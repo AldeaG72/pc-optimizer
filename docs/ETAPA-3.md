@@ -61,14 +61,32 @@ Etapa are patru părți. Fiecare se termină cu CI verde și se unește separat 
 
 ## Partea C — Catalogul de tweak-uri
 
-- [ ] **3.10 Tipuri noi de acțiuni în motor**, fiecare cu undo exact și teste: planul și setările de alimentare
+- [x] **3.10 Tipuri noi de acțiuni în motor**, fiecare cu undo exact și teste: planul și setările de alimentare
   (`powercfg`), proprietățile plăcii de rețea, aplicațiile preinstalate (eliminare + reinstalare prin comutator —
   se verifică întâi că reinstalarea chiar merge; altfel rămâne doar ascundere), curățarea de fișiere (**nu** se poate
   anula: confirmare înainte, raport cu spațiul eliberat).
-- [ ] **3.11 Rețetele** din SPEC 4.2, în afară de Avansat: alimentare (cu profil Laptop), gaming, input, Windows,
+  *(2026-11-22: planul și setările de alimentare prin aceeași interfață Windows ca `powercfg`; setarea plăcii de rețea
+  pe fiecare placă fizică ce o oferă (o intrare în jurnal pe placă). O aplicație se elimină doar dacă Windows îi
+  păstrează o copie, deci reinstalarea merge fără internet; altfel „nu se aplică” (în loc de ascundere). Windows
+  Security, Store, Edge și componentele comune nu pot fi eliminate niciodată. Testat în CI pe Windows real: plan,
+  setare USB, setare de placă de rețea, Feedback Hub eliminat și reinstalat. Jurnalul a trecut la versiunea 3 (vechile
+  intrări se păstrează). Curățarea: locurile sunt fixe în cod, linkurile nu sunt urmate niciodată; fișierele tale le
+  curăță aplicația fără drepturi de administrator, iar `C:\Windows\Temp` îl curăță helper-ul, doar fișierele direct
+  din folder, ca nimic cu drepturi de administrator să nu lucreze într-un folder controlat de utilizator.)*
+- [x] **3.11 Rețetele** din SPEC 4.2, în afară de Avansat: alimentare (cu profil Laptop), gaming, input, Windows,
   rețea, sunet (doar recomandare), debloat, confidențialitate, curățare. Fiecare cu `why`, `breaks`, `risk`, `sources`
   verificate (ca în `docs/VERIFICARE-RETETE.md`) și cu testul apply → undo → „registrul identic” în CI. Cele marcate
   în SPEC „după benchmark” (planul de alimentare, HAGS) cer întâi o măsurare.
+  *(2026-11-22: 39 de rețete (erau 6). Planul de alimentare și HAGS nu sunt în „Recomandate”; interfața oferă
+  „Măsoară înainte”. Toate rămân `verified: false` până la verificarea pe PC-uri reale de beta-testeri.
+  **Lăsate deoparte, cu motiv:** Power Throttling oprit (locul exact din registru nu e confirmat oficial); MPO oprit
+  (nicio pagină oficială NVIDIA/Microsoft găsită); Game Bar oprit (Windows 11 nu are o setare documentată, iar
+  aplicația Game Bar e protejată); optimizări pentru jocuri în fereastră (valoarea ține și alte setări, de ex. Auto
+  HDR; cere o condiție „doar dacă lipsește”); notificări în timpul jocului (le face Modul joc, Etapa 4); „Permite
+  computerului să oprească placa de rețea” (Microsoft spune să nu se schimbe din registru); cache-ul web Steam (Valve
+  nu are o pagină oficială); cache-ul Windows Update (Microsoft cere oprirea serviciului întâi); OneDrive (doar oprit
+  la pornire, în 3.12); sunet (doar recomandare, Etapa 4). Suspendarea USB e inclusă, dar nu în „Recomandate”:
+  Microsoft recomandă s-o lași pornită dacă dispozitivele merg bine.)*
 - [ ] **3.12 Aplicațiile la pornire**: lista completă, impactul, ce face fiecare, recomandare; dezactivarea folosește
   același mecanism ca Task Manager-ul, deci se poate anula.
 

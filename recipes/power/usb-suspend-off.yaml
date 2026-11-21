@@ -1,0 +1,37 @@
+id: power.usb-suspend-off
+version: 1
+name:
+  ro: Suspendarea selectivă USB oprită (pe priză)
+  en: USB selective suspend off (plugged in)
+description:
+  ro: Pe priză, Windows nu mai pune în repaus porturile USB nefolosite (mouse, tastatură, căști). Pe baterie rămâne cum era.
+  en: When plugged in, Windows no longer puts idle USB ports to sleep (mouse, keyboard, headset). On battery nothing changes.
+category: power
+risk: moderate
+# SPEC 4.2: desktop, and laptops only when plugged in (hence AC only). Not in "Recommended":
+# Microsoft recommends keeping selective suspend on.
+profiles: []
+impact:
+  ro: Mic; ajută doar dacă mouse-ul sau căștile USB „se trezesc” greu sau se deconectează
+  en: Low; only helps if a USB mouse or headset wakes slowly or disconnects
+why:
+  ro: Unele dispozitive USB răspund cu întârziere sau se deconectează scurt după ce Windows le pune în repaus. Dacă ți se întâmplă, oprirea repausului pe priză rezolvă de obicei problema.
+  en: Some USB devices respond late or briefly disconnect after Windows puts them to sleep. If that happens to you, turning it off when plugged in usually fixes it.
+breaks:
+  ro: Consum puțin mai mare pe priză. Microsoft recomandă să lași suspendarea pornită dacă nu ai probleme cu dispozitivele USB.
+  en: Slightly higher power use when plugged in. Microsoft recommends leaving it on if your USB devices work fine.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  - https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/usb-selective-suspend
+  - https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/winusb-power-management
+# The setting GUIDs are the ones powercfg shows; Microsoft documents the feature, not this
+# exact setting. Tested in CI. Stays `false`.
+verified: false
+actions:
+  # USB settings → USB selective suspend setting, plugged in: disabled.
+  - type: power-setting
+    subgroup: 2a737441-1930-4402-8d77-b2bebba308a3
+    setting: 48e6b7a6-50f5-4782-a5d4-53bb8f07e226
+    ac: 0

@@ -1,0 +1,35 @@
+id: debloat.widgets-off
+version: 1
+name:
+  ro: Widget-urile oprite (politica Windows)
+  en: Widgets off (Windows policy)
+description:
+  ro: Oprește panoul de widget-uri (știri, vreme) și butonul lui de pe taskbar, prin politica oficială „Allow widgets”.
+  en: Turns off the widgets board (news, weather) and its taskbar button, through the official “Allow widgets” policy.
+category: debloat
+risk: safe
+# Owner decision (2026-11-22): in "Recommended".
+profiles: [recommended, laptop]
+impact:
+  ro: Mic; widget-urile rulează în fundal și se încarcă de pe internet
+  en: Low; widgets run in the background and load from the internet
+why:
+  ro: Panoul de widget-uri ține procese pornite și descarcă știri chiar dacă nu îl deschizi.
+  en: The widgets board keeps processes running and downloads news even if you never open it.
+breaks:
+  ro: Panoul de widget-uri nu mai e disponibil pentru niciun cont de pe acest PC. Windows poate afișa „gestionat de organizația ta”.
+  en: The widgets board is no longer available for any account on this PC. Windows may show “managed by your organization”.
+requires_restart: explorer
+platform:
+  min_build: 22000
+sources:
+  - https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-newsandinterests
+# Documented: NewsAndInterests/AllowNewsAndInterests, SOFTWARE\Policies\Microsoft\Dsh.
+verified: false
+actions:
+  - type: registry
+    hive: HKLM
+    key: SOFTWARE\Policies\Microsoft\Dsh
+    value: AllowNewsAndInterests
+    kind: dword
+    set: 0

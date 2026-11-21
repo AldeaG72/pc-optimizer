@@ -1,11 +1,14 @@
 //! PC Optimizer, the Windows app. Runs as a normal user: every command here only reads
 //! (the registry through a read-only wrapper); every change goes through `pco-helper.exe`,
-//! started with UAC (Stage 3, 3.2 and 3.4).
+//! started with UAC (Stage 3, 3.2 and 3.4). The one exception is the cleanup of the user's
+//! own files (temporary files, launcher caches, Recycle Bin): it runs here, without
+//! administrator rights, so nothing elevated ever works in a folder the user controls.
 
 // No console window behind the app in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod benchview;
+mod cleanview;
 mod home;
 mod settings;
 mod views;
@@ -124,6 +127,32 @@ async fn recipes(lang: String) -> Result<views::Catalog, String> {
             ),
             laptop: host.form_factor == Some(pco_core::recipe::FormFactor::Laptop),
         })
+    })
+    .await
+}
+
+/// How much each cleanup would free (system folders: unknown without admin). Reads only.
+#[tauri::command]
+async fn cleanup_sizes() -> Result<Vec<cleanview::CleanSize>, String> {
+    blocking(move || {
+        let recipes =
+            recipe::load_embedded(pco_core::embedded::RECIPES).map_err(|e| e.to_string())?;
+        Ok(cleanview::sizes(
+            &recipes,
+            &pco_core::cleanup::windows::WindowsCleanup::user(),
+        ))
+    })
+    .await
+}
+
+/// Cleans the user's own places of these cleanup recipes (after the interface asked).
+#[tauri::command]
+async fn clean_user(ids: Vec<String>) -> Result<Vec<cleanview::CleanResult>, String> {
+    blocking(move || {
+        let recipes =
+            recipe::load_embedded(pco_core::embedded::RECIPES).map_err(|e| e.to_string())?;
+        let mut user = pco_core::cleanup::windows::WindowsCleanup::user();
+        cleanview::clean_user(&recipes, &ids, &mut user)
     })
     .await
 }
@@ -283,6 +312,8 @@ fn main() {
             tour_version,
             recipes,
             home,
+            cleanup_sizes,
+            clean_user,
             bench_history,
             run_helper,
             cancel_helper,

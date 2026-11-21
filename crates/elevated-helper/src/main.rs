@@ -246,12 +246,14 @@ mod real {
         let mut services = WindowsServices::system();
         let mut power = WindowsPower::system();
         let mut apps = WindowsAppx::system();
+        let mut cleanup = pco_core::cleanup::windows::WindowsCleanup::system();
         let mut restore_point = create_restore_point;
         let mut env = Env {
             registry: &mut registry,
             services: &mut services,
             power: &mut power,
             apps: &mut apps,
+            cleanup: &mut cleanup,
             journal: &mut journal,
             host,
             running,

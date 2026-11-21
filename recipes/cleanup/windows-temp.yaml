@@ -1,0 +1,32 @@
+id: cleanup.windows-temp
+version: 1
+name:
+  ro: Fișierele temporare ale Windows
+  en: Windows temporary files
+description:
+  ro: Șterge fișierele mai vechi de o zi aflate direct în C:\Windows\Temp. Subfolderele nu sunt atinse.
+  en: Deletes files older than a day directly inside C:\Windows\Temp. Subfolders are not touched.
+category: cleanup
+risk: safe
+profiles: []
+impact:
+  ro: Spațiu pe disc eliberat; fără efect asupra FPS
+  en: Disk space freed; no effect on FPS
+why:
+  ro: Windows și instalatoarele lasă aici fișiere vechi. Curățarea Windows („Fișiere temporare” din Setări › Stocare) le șterge la fel.
+  en: Windows and installers leave old files here. Windows' own cleanup (“Temporary files” in Settings › Storage) deletes them the same way.
+breaks:
+  ro: Nu se poate anula. Cere permisiunea de administrator (UAC). Fișierele din ultimele 24 de ore și cele folosite acum rămân.
+  en: Cannot be undone. Asks for administrator permission (UAC). Files from the last 24 hours and files in use stay.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  - https://support.microsoft.com/en-us/windows/experience/storage-filemanagement/storage-settings-in-windows
+  - https://support.microsoft.com/en-us/windows/deployment/updates-lifecycle/free-up-space-for-windows-updates
+# Run by the elevated helper. Other users can create files in this folder, so only the files
+# directly inside are deleted (a subfolder could be swapped for a link to a system folder).
+verified: false
+actions:
+  - type: cleanup
+    target: windows-temp

@@ -7,6 +7,8 @@ import type { Lang } from "./i18n";
 import { isTauri } from "./window";
 import {
   sampleCancel,
+  sampleCleanSizes,
+  sampleCleanUser,
   sampleEvents,
   sampleForget,
   sampleGames,
@@ -82,7 +84,8 @@ export type Outcome =
   | { code: "not_applicable"; reason: NotApplicableReason }
   | { code: "failed"; error: string; rolled_back: boolean }
   | { code: "undone"; restored: number }
-  | { code: "nothing_to_undo" };
+  | { code: "nothing_to_undo" }
+  | { code: "cleaned"; freed_bytes: number; deleted: number; skipped: number };
 
 export type BlockReason =
   | { code: "not_windows11"; build: number }
@@ -112,6 +115,7 @@ export type HelperRequest =
   | { op: "apply"; ids: string[]; restore_point?: boolean }
   | { op: "undo"; ids: string[] }
   | { op: "undo_all" }
+  | { op: "clean"; ids: string[] }
   | { op: "bench"; target: string; label: "before" | "after"; runs: number; duration: number; warmup: number };
 
 export interface Settings {
@@ -308,4 +312,28 @@ export async function benchForget(): Promise<number> {
 
 export async function appVersion(): Promise<string> {
   return isTauri() ? call<string>("app_version") : "0.0.1";
+}
+export interface CleanSize {
+  id: string;
+  /** null: a system folder the app cannot see without administrator rights. */
+  bytes: number | null;
+  needsAdmin: boolean;
+}
+
+export interface CleanResult {
+  id: string;
+  freedBytes: number;
+  deleted: number;
+  skipped: number;
+  error: string | null;
+}
+
+/** How much each cleanup would free. Changes nothing. */
+export async function cleanupSizes(): Promise<CleanSize[]> {
+  return isTauri() ? call<CleanSize[]>("cleanup_sizes") : sampleCleanSizes();
+}
+
+/** Cleans the user's own places (no UAC); system folders go through `runHelper` ("clean"). */
+export async function cleanUser(ids: string[]): Promise<CleanResult[]> {
+  return isTauri() ? call<CleanResult[]>("clean_user", { ids }) : sampleCleanUser(ids);
 }
