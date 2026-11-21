@@ -94,13 +94,14 @@ jobs:
         shell: pwsh
         continue-on-error: true
         run: |
-          "== provisioned =="; Get-AppxProvisionedPackage -Online | ForEach-Object { "$($_.DisplayName) | $($_.InstallLocation)" }
-          "== user =="; Get-AppxPackage | ForEach-Object { "$($_.Name) | $($_.InstallLocation)" }
-          "== adapters =="; Get-NetAdapter -Physical | Format-Table -AutoSize Name, InterfaceDescription, Status | Out-String
-          Get-NetAdapter -Physical | Get-NetAdapterAdvancedProperty -AllProperties | Format-Table -AutoSize Name, RegistryKeyword, RegistryValue | Out-String -Width 200
+          # As annotations: readable on the run page without signing in.
+          function Note($title, $lines) { $text = (@($lines) -join '%0A'); Write-Output "::notice title=$title::$text" }
+          Note 'Provisioned apps' (Get-AppxProvisionedPackage -Online | ForEach-Object { "$($_.DisplayName) | $($_.PublisherId)" })
+          Note 'User apps' (Get-AppxPackage | ForEach-Object { $_.Name })
           $class = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}'
-          Get-ChildItem $class -ErrorAction SilentlyContinue | ForEach-Object { $p = Get-ItemProperty $_.PSPath; "$($_.PSChildName) | $($p.DriverDesc) | Characteristics=$($p.Characteristics) | PnP=$($p.PnPCapabilities)" }
-          "== power =="; powercfg /list; powercfg /query SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3; powercfg /query SCHEME_CURRENT 54533251-82be-4824-96c1-47b60b740d00 0cc5b647-c1df-4637-891a-dec35c318583
+          Note 'Network adapters' (Get-ChildItem $class -ErrorAction SilentlyContinue | ForEach-Object { $p = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue; "$($_.PSChildName) | $($p.DriverDesc) | Characteristics=$($p.Characteristics) | PnP=$($p.PnPCapabilities) | EEE=$($p.'*EEE')" })
+          Note 'Adapter advanced properties' (Get-NetAdapter -Physical | Get-NetAdapterAdvancedProperty -AllProperties | ForEach-Object { "$($_.Name) | $($_.RegistryKeyword) = $($_.RegistryValue)" })
+          Note 'Power plans' (powercfg /list)
 
       - name: Apply and undo every recipe for real
         run: cargo test -p pco-core --test real_recipes -- --ignored --test-threads=1 --nocapture
