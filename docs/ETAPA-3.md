@@ -25,11 +25,15 @@ Etapa are patru părți. Fiecare se termină cu CI verde și se unește separat 
   *(În plus: jurnalul stă în folderul utilizatorului, deci orice program pornit de el l-ar putea modifica; helper-ul
   anulează doar intrări care arată exact spre ținta rețetei incluse pe care o numesc. Celălalt capăt al canalului nu
   poate „împrumuta” drepturile helper-ului. Testat în CI: aplicare → anulare reală prin helper, 2026-11-21.)*
-- [ ] **3.3 Scheletul aplicației** (`app/`): fereastră ~1100×720 cu bară de titlu proprie, fundal Mica, bară laterală
+- [x] **3.3 Scheletul aplicației** (`app/`): fereastră ~1100×720 cu bară de titlu proprie, fundal Mica, bară laterală
   pliabilă, temă după Windows, fontul Inter și iconițele Lucide incluse local (fără nicio cerere pe internet).
   Traducerile RO/EN dintr-o singură sursă comună cu `pco`, cu forme de plural corecte („1 rulare”, „3 rulări”).
-- [ ] **3.4 Legătura cu motorul**: comenzi Tauri subțiri peste `pco-core` — citirile (rețete, plan, sănătate, hardware,
+  *(Traducerile stau acum în `i18n/` la rădăcină. Aplicația are propriul workspace Cargo (`app/src-tauri`), doar
+  pentru Windows. Iconiță provizorie. Job nou în CI: svelte-check, vitest, build, fmt, clippy, teste.)*
+- [x] **3.4 Legătura cu motorul**: comenzi Tauri subțiri peste `pco-core` — citirile (rețete, plan, sănătate, hardware,
   istoric benchmark) în aplicație; **orice scriere doar prin helper**.
+  *(Registrul e citit printr-un `ReadOnlyRegistry` care refuză orice scriere; serviciile prin `read_only()`.
+  `run_helper` pornește helper-ul cu UAC și trimite evenimentele live interfeței.)*
 
 ## Partea B — Ecranele
 
