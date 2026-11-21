@@ -19,8 +19,11 @@ mod real {
     use pco_core::guard::{self, BlockedProcesses};
     use pco_core::journal::Journal;
     use pco_core::recipe;
+    use pco_helper::bench::{run_bench, BenchRequest};
     use pco_helper::pipe::{self, Connection};
-    use pco_helper::protocol::{self, Event, Refusal, MAX_REQUEST, VERSION};
+    use pco_helper::protocol::{self, Event, Refusal, Request, MAX_REQUEST, VERSION};
+
+    use super::bench_driver;
     use pco_helper::serve::{serve, Env};
 
     /// Exit codes: 0 the request ran (whatever its outcome); 64 wrong arguments; 65 no
@@ -164,6 +167,55 @@ mod real {
             Ok(j) => j,
             Err(e) => return fail(&mut conn, e.to_string()),
         };
+        if let Request::Bench {
+            target,
+            after,
+            runs,
+            duration,
+            warmup,
+        } = &request
+        {
+            // The app may send "cancel" while the benchmark runs; read it without ever
+            // blocking the events this thread writes.
+            let cancel = Arc::new(AtomicBool::new(false));
+            if let Ok(mut reader) = conn.take_reader() {
+                let flag = Arc::clone(&cancel);
+                std::thread::spawn(move || loop {
+                    match reader.poll_line(64) {
+                        Ok(Some(Some(line))) if line == pipe::CANCEL => {
+                            flag.store(true, Ordering::SeqCst);
+                            return;
+                        }
+                        Ok(Some(Some(_))) | Ok(None) => {
+                            std::thread::sleep(Duration::from_millis(100))
+                        }
+                        // The app is gone: stop too.
+                        Ok(Some(None)) | Err(_) => {
+                            flag.store(true, Ordering::SeqCst);
+                            return;
+                        }
+                    }
+                });
+            }
+            let mut driver = bench_driver::WindowsBench::default();
+            let req = BenchRequest {
+                target,
+                after: *after,
+                runs: *runs,
+                duration: *duration,
+                warmup: *warmup,
+            };
+            run_bench(
+                &mut journal,
+                &host,
+                &mut driver,
+                &req,
+                &cancel,
+                &mut |event| send(&mut conn, &event),
+            );
+            return ExitCode::SUCCESS;
+        }
+
         let mut registry = WindowsRegistry::system();
         let mut services = WindowsServices::system();
         let mut env = Env {
@@ -177,6 +229,114 @@ mod real {
         };
         serve(&mut env, &request, &mut |event| send(&mut conn, &event));
         ExitCode::SUCCESS
+    }
+}
+
+/// The real benchmark driver: the pinned PresentMon next to the helper, the global
+/// Ctrl+Shift+F10 key while waiting, a short beep.
+#[cfg(windows)]
+mod bench_driver {
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+    use pco_core::bench::presentmon;
+    use pco_core::guard;
+    use pco_helper::bench::BenchDriver;
+    use windows::Win32::System::Diagnostics::Debug::MessageBeep;
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        RegisterHotKey, UnregisterHotKey, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, VK_F10,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{PeekMessageW, MB_OK, MSG, PM_REMOVE, WM_HOTKEY};
+
+    /// Longest wait for the key before giving up (the user walked away).
+    const KEY_TIMEOUT: Duration = Duration::from_secs(30 * 60);
+    const HOTKEY_ID: i32 = 0x5043;
+
+    #[derive(Default)]
+    pub struct WindowsBench {
+        presentmon: Option<PathBuf>,
+    }
+
+    impl BenchDriver for WindowsBench {
+        fn presentmon(&mut self) -> Result<(), String> {
+            let dir = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(PathBuf::from));
+            let path = presentmon::locate(dir.as_deref()).map_err(|e| e.to_string())?;
+            self.presentmon = Some(path);
+            Ok(())
+        }
+
+        fn running(&mut self, processes: &[String]) -> Option<String> {
+            let list = guard::windows::running_processes().ok()?;
+            processes
+                .iter()
+                .find(|p| list.iter().any(|n| n.eq_ignore_ascii_case(p)))
+                .cloned()
+        }
+
+        fn wait_key(&mut self, cancel: &AtomicBool) -> Result<bool, String> {
+            // SAFETY: registers a hot key for this thread; unregistered before returning.
+            unsafe {
+                RegisterHotKey(
+                    None,
+                    HOTKEY_ID,
+                    MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT,
+                    u32::from(VK_F10.0),
+                )
+                .map_err(|_| "Ctrl+Shift+F10 is taken by another program".to_owned())?;
+            }
+            let deadline = Instant::now() + KEY_TIMEOUT;
+            let pressed = loop {
+                let mut msg = MSG::default();
+                // SAFETY: reads this thread's own message queue.
+                let got = unsafe { PeekMessageW(&mut msg, None, WM_HOTKEY, WM_HOTKEY, PM_REMOVE) };
+                if got.as_bool() {
+                    break true;
+                }
+                if cancel.load(Ordering::SeqCst) || Instant::now() >= deadline {
+                    break false;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            };
+            // SAFETY: the same id registered above.
+            let _ = unsafe { UnregisterHotKey(None, HOTKEY_ID) };
+            Ok(pressed)
+        }
+
+        fn sleep(&mut self, seconds: u32, cancel: &AtomicBool) -> bool {
+            let end = Instant::now() + Duration::from_secs(u64::from(seconds));
+            while Instant::now() < end {
+                if cancel.load(Ordering::SeqCst) {
+                    return false;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            !cancel.load(Ordering::SeqCst)
+        }
+
+        fn beep(&mut self) {
+            // SAFETY: plays the default system sound.
+            let _ = unsafe { MessageBeep(MB_OK) };
+        }
+
+        fn capture(
+            &mut self,
+            process: &str,
+            seconds: u32,
+            cancel: &AtomicBool,
+        ) -> Result<String, String> {
+            let exe = self.presentmon.clone().ok_or("PresentMon not checked")?;
+            presentmon::capture(&exe, process, seconds, cancel)
+        }
+
+        fn now_ms(&mut self) -> i64 {
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX))
+                .unwrap_or(0)
+        }
     }
 }
 

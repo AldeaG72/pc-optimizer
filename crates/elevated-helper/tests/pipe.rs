@@ -9,6 +9,7 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use pco_helper::pipe::{self, HelperProcess, RunError, Server};
@@ -38,7 +39,10 @@ fn run(data: &Path, parent: Option<u32>, request: &Request) -> Result<Vec<Event>
         .unwrap();
     let process = HelperProcess::Child(child);
     let mut events = Vec::new();
-    let result = pipe::exchange(server, &process, request, &mut |e| events.push(e.clone()));
+    let never = AtomicBool::new(false);
+    let result = pipe::exchange(server, &process, request, &never, &mut |e| {
+        events.push(e.clone())
+    });
     let code = process.wait(Duration::from_secs(30));
     assert!(code.is_some(), "the helper did not exit");
     result.map(|()| events)
@@ -119,7 +123,8 @@ fn the_app_gives_up_when_the_helper_exits_without_connecting() {
     // A process that exits at once instead of connecting.
     let child = Command::new(HELPER).spawn().unwrap();
     let process = HelperProcess::Child(child);
-    let result = pipe::exchange(server, &process, &Request::UndoAll, &mut |_| {});
+    let never = AtomicBool::new(false);
+    let result = pipe::exchange(server, &process, &Request::UndoAll, &never, &mut |_| {});
     assert_eq!(result, Err(RunError::NoConnection));
 }
 

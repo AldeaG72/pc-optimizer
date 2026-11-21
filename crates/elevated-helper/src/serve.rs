@@ -76,6 +76,13 @@ fn run(
             ids.clone()
         }
         Request::UndoAll => env.journal.applied_recipe_ids()?,
+        // Runs in `bench::run_bench`, with its own guards.
+        Request::Bench { .. } => {
+            emit(Event::Error {
+                message: "a benchmark is not a change".into(),
+            });
+            return Ok(());
+        }
     };
 
     if let Err(b) = check_no_games(&env.running, &env.blocked) {
@@ -268,7 +275,7 @@ fn rank(r: RequiresRestart) -> u8 {
     }
 }
 
-fn block(b: &Blocked) -> BlockReason {
+pub(crate) fn block(b: &Blocked) -> BlockReason {
     match b {
         Blocked::NotWindows11 { build } => BlockReason::NotWindows11 { build: *build },
         Blocked::NotX64 { arch } => BlockReason::NotX64 {

@@ -4,12 +4,18 @@
 //! IDs (CLAUDE.md: the elevated helper takes recipe IDs, nothing else): no paths, no registry
 //! keys, no commands. Anything else is refused before the engine is even created.
 //!
+//! The one exception is a benchmark (PresentMon needs administrator rights): it takes a
+//! supported game's short name or a bare executable name, used only as PresentMon's process
+//! filter, and numbers within fixed limits. It changes no setting.
+//!
 //! Request:  `{"v":1,"op":"apply","ids":["gaming.game-mode-on"]}`
 //!           `{"v":1,"op":"undo","ids":["gaming.game-mode-on"]}`
 //!           `{"v":1,"op":"undo_all"}`
+//!           `{"v":1,"op":"bench","target":"cs2","label":"before","runs":3,"duration":60,"warmup":10}`
 //! Events:   `{"event":"hello","version":1}`, then `started` / `result` per recipe, then `done`
 //!           (or a single `refused` / `blocked` / `error`).
 
+use pco_core::bench::Metrics;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -21,12 +27,28 @@ pub const MAX_REQUEST: usize = 64 * 1024;
 pub const MAX_IDS: usize = 256;
 /// Longest recipe ID accepted.
 pub const MAX_ID_LEN: usize = 100;
+/// Benchmark limits: runs, seconds measured per run, seconds of warm-up.
+pub const BENCH_RUNS: std::ops::RangeInclusive<u32> = 1..=5;
+pub const BENCH_DURATION: std::ops::RangeInclusive<u32> = 10..=300;
+pub const BENCH_WARMUP: std::ops::RangeInclusive<u32> = 0..=60;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Request {
-    Apply { ids: Vec<String> },
-    Undo { ids: Vec<String> },
+    Apply {
+        ids: Vec<String>,
+    },
+    Undo {
+        ids: Vec<String>,
+    },
     UndoAll,
+    /// Measure FPS: fter false = before the tweaks.
+    Bench {
+        target: String,
+        after: bool,
+        runs: u32,
+        duration: u32,
+        warmup: u32,
+    },
 }
 
 impl Request {
@@ -36,6 +58,17 @@ impl Request {
             Request::Apply { ids } => serde_json::json!({"v": VERSION, "op": "apply", "ids": ids}),
             Request::Undo { ids } => serde_json::json!({"v": VERSION, "op": "undo", "ids": ids}),
             Request::UndoAll => serde_json::json!({"v": VERSION, "op": "undo_all"}),
+            Request::Bench {
+                target,
+                after,
+                runs,
+                duration,
+                warmup,
+            } => serde_json::json!({
+                "v": VERSION, "op": "bench", "target": target,
+                "label": if *after { "after" } else { "before" },
+                "runs": runs, "duration": duration, "warmup": warmup,
+            }),
         };
         value.to_string()
     }
@@ -55,6 +88,8 @@ pub enum Refusal {
     BadId(String),
     /// Well formed, but not one of the recipes built into the helper.
     UnknownRecipe(String),
+    /// Not a supported game or a bare executable name.
+    BadTarget(String),
     /// The helper was started under another Windows account than the app (UAC with a
     /// different administrator): settings "for the current user" would reach the wrong user.
     OtherUser,
@@ -136,7 +171,7 @@ pub enum Restart {
     Reboot,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum Event {
     Hello {
@@ -159,6 +194,29 @@ pub enum Event {
     Result {
         id: String,
         outcome: Outcome,
+    },
+    /// Benchmark: waiting for the game to start (the app launched it).
+    BenchWaitingGame {
+        processes: Vec<String>,
+    },
+    /// Benchmark: press Ctrl+Shift+F10 in the match to start run `run`.
+    BenchWaitingKey {
+        run: u32,
+        runs: u32,
+    },
+    /// Benchmark: the warm-up is over; measuring for `seconds`.
+    BenchMeasuring {
+        run: u32,
+        seconds: u32,
+    },
+    BenchRun {
+        run: u32,
+        metrics: Metrics,
+    },
+    /// Benchmark: the runs measured so far are saved under `series` (then `done`).
+    BenchFinished {
+        series: i64,
+        runs: u32,
     },
     Done {
         restart: Restart,
@@ -207,6 +265,36 @@ pub fn is_recipe_id(id: &str) -> bool {
         })
 }
 
+fn parse_bench(map: &serde_json::Map<String, Value>) -> Result<Request, Refusal> {
+    let number = |field: &str, range: std::ops::RangeInclusive<u32>| {
+        map.get(field)
+            .and_then(Value::as_u64)
+            .and_then(|n| u32::try_from(n).ok())
+            .filter(|n| range.contains(n))
+            .ok_or_else(|| Refusal::BadShape(field.to_owned()))
+    };
+    let Some(Value::String(target)) = map.get("target") else {
+        return Err(Refusal::BadShape("target".into()));
+    };
+    if pco_core::bench::target::resolve(target).is_none() {
+        return Err(Refusal::BadTarget(
+            target.chars().take(MAX_ID_LEN).collect(),
+        ));
+    }
+    let after = match map.get("label").and_then(Value::as_str) {
+        Some("before") => false,
+        Some("after") => true,
+        _ => return Err(Refusal::BadShape("label".into())),
+    };
+    Ok(Request::Bench {
+        target: target.trim().to_owned(),
+        after,
+        runs: number("runs", BENCH_RUNS)?,
+        duration: number("duration", BENCH_DURATION)?,
+        warmup: number("warmup", BENCH_WARMUP)?,
+    })
+}
+
 /// Checks the shape of a request line. Whether the IDs are known is checked by the server,
 /// against the recipes built into it.
 pub fn parse_request(line: &str) -> Result<Request, Refusal> {
@@ -229,6 +317,7 @@ pub fn parse_request(line: &str) -> Result<Request, Refusal> {
     let allowed: &[&str] = match op {
         "apply" | "undo" => &["v", "op", "ids"],
         "undo_all" => &["v", "op"],
+        "bench" => &["v", "op", "target", "label", "runs", "duration", "warmup"],
         _ => return Err(Refusal::BadShape("op".into())),
     };
     if let Some(extra) = map.keys().find(|k| !allowed.contains(&k.as_str())) {
@@ -236,6 +325,9 @@ pub fn parse_request(line: &str) -> Result<Request, Refusal> {
     }
     if op == "undo_all" {
         return Ok(Request::UndoAll);
+    }
+    if op == "bench" {
+        return parse_bench(&map);
     }
     let Some(Value::Array(items)) = map.get("ids") else {
         return Err(Refusal::BadShape("ids".into()));

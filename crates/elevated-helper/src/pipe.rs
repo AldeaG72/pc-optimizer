@@ -13,6 +13,7 @@ use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle, RawHandle};
 use std::path::Path;
 use std::process::{Child, Command};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
@@ -30,7 +31,7 @@ use windows::Win32::Security::{
 use windows::Win32::Storage::FileSystem::{FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_ACCESS_DUPLEX};
 use windows::Win32::System::Pipes::{
     ConnectNamedPipe, CreateNamedPipeW, GetNamedPipeClientProcessId, GetNamedPipeServerProcessId,
-    PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE, PIPE_WAIT,
+    PeekNamedPipe, PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE, PIPE_WAIT,
 };
 use windows::Win32::System::Threading::{
     GetCurrentProcess, GetExitCodeProcess, GetProcessId, OpenProcess, OpenProcessToken,
@@ -193,12 +194,48 @@ impl Connection {
         Ok(Some(line.trim_end_matches(['\r', '\n']).to_owned()))
     }
 
+    /// One write per line, so the other end sees whole lines.
     pub fn write_line(&mut self, line: &str) -> io::Result<()> {
-        self.writer.write_all(line.as_bytes())?;
-        self.writer.write_all(b"\n")?;
+        let mut bytes = Vec::with_capacity(line.len() + 1);
+        bytes.extend_from_slice(line.as_bytes());
+        bytes.push(b'\n');
+        self.writer.write_all(&bytes)?;
         self.writer.flush()
     }
+
+    /// Like [`Connection::read_line`], but never waits for the other end: `Ok(None)` when
+    /// nothing has arrived yet, `Ok(Some(None))` at the end. A blocked read on a pipe
+    /// handle would also block writes on it (Windows serializes synchronous I/O), so
+    /// whoever must also write (a cancel) reads this way.
+    pub fn poll_line(&mut self, max: usize) -> io::Result<Option<Option<String>>> {
+        if self.reader.buffer().is_empty() {
+            let mut avail = 0u32;
+            let handle = HANDLE(self.reader.get_ref().as_raw_handle());
+            // SAFETY: only asks how many bytes wait in the pipe; no buffer is passed.
+            if unsafe { PeekNamedPipe(handle, None, 0, None, Some(&mut avail), None) }.is_err() {
+                return Ok(Some(None));
+            }
+            if avail == 0 {
+                return Ok(None);
+            }
+        }
+        self.read_line(max).map(Some)
+    }
+
+    /// The helper keeps writing events while another thread waits for a `cancel` line: this
+    /// gives that thread its own reading end (`self` keeps writing).
+    pub fn take_reader(&mut self) -> io::Result<Connection> {
+        let file = self.writer.try_clone()?;
+        let reader = std::mem::replace(&mut self.reader, BufReader::new(file));
+        Ok(Connection {
+            reader,
+            writer: self.writer.try_clone()?,
+        })
+    }
 }
+
+/// The line the app sends to stop a running benchmark.
+pub const CANCEL: &str = "cancel";
 
 /// The app's end, before the helper connects.
 pub struct Server {
@@ -457,11 +494,13 @@ impl std::fmt::Display for RunError {
 impl std::error::Error for RunError {}
 
 /// The app's side of one request: start the helper, send `request`, pass every event to
-/// `on_event` until the last one.
+/// `on_event` until the last one. Setting `cancel` stops a running benchmark (what was
+/// measured so far is kept).
 pub fn run(
     helper: &Path,
     request: &Request,
     elevate: bool,
+    cancel: &AtomicBool,
     on_event: &mut dyn FnMut(&Event),
 ) -> Result<(), RunError> {
     let server = Server::create().map_err(|e| RunError::Io(e.to_string()))?;
@@ -472,7 +511,7 @@ pub fn run(
         std::process::id().to_string(),
     ];
     let process = launch(helper, &args, elevate)?;
-    let result = exchange(server, &process, request, on_event);
+    let result = exchange(server, &process, request, cancel, on_event);
     if result.is_err() {
         process.kill();
     }
@@ -482,11 +521,11 @@ pub fn run(
 
 /// Waits for `process` to connect to `server`, checks it, sends `request` and passes every
 /// event to `on_event` until the last one.
-/// event to on_event until the last one.
 pub fn exchange(
     server: Server,
     process: &HelperProcess,
     request: &Request,
+    cancel: &AtomicBool,
     on_event: &mut dyn FnMut(&Event),
 ) -> Result<(), RunError> {
     let mut conn = server
@@ -513,14 +552,27 @@ pub fn exchange(
         other => return Err(RunError::Protocol(format!("{other:?}"))),
     }
     conn.write_line(&request.to_line()).map_err(io)?;
+
+    // Read without blocking, so "cancel" can be written at any time.
+    let mut cancel_sent = false;
     loop {
-        let Some(line) = conn.read_line(MAX_REQUEST).map_err(io)? else {
-            return Err(RunError::Protocol("the helper stopped early".into()));
-        };
-        let event = Event::from_line(&line).ok_or_else(|| RunError::Protocol(line.clone()))?;
-        on_event(&event);
-        if event.is_final() {
-            return Ok(());
+        match conn.poll_line(MAX_REQUEST).map_err(io)? {
+            Some(Some(line)) => {
+                let event =
+                    Event::from_line(&line).ok_or_else(|| RunError::Protocol(line.clone()))?;
+                on_event(&event);
+                if event.is_final() {
+                    return Ok(());
+                }
+            }
+            Some(None) => return Err(RunError::Protocol("the helper stopped early".into())),
+            None => {
+                if !cancel_sent && cancel.load(Ordering::SeqCst) {
+                    conn.write_line(CANCEL).map_err(io)?;
+                    cancel_sent = true;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
         }
     }
 }

@@ -11,6 +11,7 @@
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod bench;
 #[cfg(windows)]
 pub mod pipe;
 pub mod protocol;
