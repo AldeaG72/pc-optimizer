@@ -172,6 +172,39 @@ impl Finding {
     }
 }
 
+/// The words for a finding, in one language: the same for `pco health` and the app.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FindingText {
+    pub title: String,
+    pub message: String,
+    pub fix: String,
+}
+
+impl Finding {
+    /// Title, message and how to fix it, from `health.<check>.…` in the translation files.
+    /// The language-neutral facts `on`/`off` are translated.
+    pub fn text(&self, t: &crate::i18n::Texts) -> FindingText {
+        use std::fmt::Display;
+        let mut args: Vec<(&str, &dyn Display)> = Vec::new();
+        if let Some(s) = &self.subject {
+            args.push(("subject", s));
+        }
+        for (name, value) in &self.facts {
+            match value.as_str() {
+                "on" => args.push((name, t.text("value.on"))),
+                "off" => args.push((name, t.text("value.off"))),
+                _ => args.push((name, value)),
+            }
+        }
+        let key = self.check.key();
+        FindingText {
+            title: t.t(&format!("health.{key}.title")).to_owned(),
+            message: t.f(&format!("health.{key}.{}", self.outcome.key()), &args),
+            fix: t.f(&format!("health.{key}.fix"), &args),
+        }
+    }
+}
+
 /// A driver older than this many days gets a warning.
 pub const DRIVER_MAX_AGE_DAYS: i64 = 183;
 /// Free space below this share of the drive, or below this many bytes, gets a warning.

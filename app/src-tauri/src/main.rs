@@ -5,6 +5,7 @@
 // No console window behind the app in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod home;
 mod settings;
 mod views;
 
@@ -117,17 +118,20 @@ async fn recipes(lang: String) -> Result<Vec<RecipeView>, String> {
     .await
 }
 
-/// Hardware and health findings, as `pco health --json` (about a second).
+/// The Home page: hardware and health findings in `lang` (about a second). Reads only.
 #[tauri::command]
-async fn health() -> Result<serde_json::Value, String> {
-    blocking(|| {
+async fn home(lang: String) -> Result<home::HomeView, String> {
+    blocking(move || {
+        let texts = pco_core::i18n::Texts::load(views::lang_from(&lang))?;
+        let recipes =
+            recipe::load_embedded(pco_core::embedded::RECIPES).map_err(|e| e.to_string())?;
         let info = pco_core::hw::windows::detect();
         let today = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| i64::try_from(d.as_secs() / 86_400).unwrap_or(0))
             .unwrap_or(0);
         let findings = pco_core::health::run(&info, today);
-        Ok(serde_json::json!({ "hardware": info, "findings": findings }))
+        Ok(home::home_view(&texts, &info, &findings, &recipes))
     })
     .await
 }
@@ -163,7 +167,7 @@ fn main() {
             save_settings,
             tour_version,
             recipes,
-            health,
+            home,
             bench_history,
             run_helper
         ])

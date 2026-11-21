@@ -23,7 +23,15 @@ export const ui = $state({
   tourOpen: false,
   /** Settings have been read; until then nothing is saved. */
   loaded: false,
+  /** A recipe to open on the Tweaks page (from "Fix" on Home). */
+  focus: null as string | null,
 });
+
+/** Opens the Tweaks page on one recipe. */
+export function openRecipe(id: string): void {
+  ui.focus = id;
+  ui.page = "tweaks";
+}
 
 /** The saved settings not mirrored in `ui`. */
 export const prefs = $state<Settings>(defaultSettings());

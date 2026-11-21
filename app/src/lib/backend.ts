@@ -5,7 +5,7 @@
 
 import type { Lang } from "./i18n";
 import { isTauri } from "./window";
-import { sampleEvents, sampleRecipes } from "./sample";
+import { sampleEvents, sampleHome, sampleRecipes } from "./sample";
 
 export type Category =
   | "windows" | "gaming" | "power" | "input" | "network" | "audio" | "debloat"
@@ -135,8 +135,39 @@ export async function recipes(lang: Lang): Promise<Recipe[]> {
   return isTauri() ? call<Recipe[]>("recipes", { lang }) : sampleRecipes(lang);
 }
 
-export async function health(): Promise<unknown> {
-  return isTauri() ? call<unknown>("health") : { hardware: null, findings: [] };
+export type FindingOutcome = "problem" | "warning" | "info";
+
+export interface HwRow {
+  kind: "cpu" | "gpu" | "memory" | "display" | "disk" | "windows" | "power" | "games";
+  label: string;
+  value: string;
+  detail: string;
+}
+
+export interface Finding {
+  check: string;
+  outcome: FindingOutcome;
+  subject: string | null;
+  title: string;
+  message: string;
+  fix: string;
+  link: string | null;
+  recipe: string | null;
+}
+
+export interface HomeView {
+  hardware: HwRow[];
+  findings: Finding[];
+  ok: string[];
+  unknown: string[];
+  laptop: boolean;
+  displays: { name: string; primary: boolean }[];
+  probeErrors: string[];
+}
+
+/** Hardware and health findings (about a second on a real PC). */
+export async function home(lang: Lang): Promise<HomeView> {
+  return isTauri() ? call<HomeView>("home", { lang }) : sampleHome();
 }
 
 /**

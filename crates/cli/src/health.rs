@@ -1,6 +1,5 @@
 //! `pco health`: the hardware summary and the health check results, as text or JSON.
 
-use std::fmt::Display;
 use std::io::Write;
 
 use anyhow::Result;
@@ -15,38 +14,19 @@ pub fn title(t: &Texts, check: CheckId) -> String {
     t.t(&format!("health.{}.title", check.key())).to_owned()
 }
 
-/// Message arguments for a finding: its subject and all its facts. The language-neutral
-/// values `on`/`off` are translated.
-fn args<'a>(t: &'a Texts, f: &'a Finding) -> Vec<(&'a str, &'a dyn Display)> {
-    let mut args: Vec<(&str, &dyn Display)> = Vec::new();
-    if let Some(s) = &f.subject {
-        args.push(("subject", s));
-    }
-    for (name, value) in &f.facts {
-        match value.as_str() {
-            "on" => args.push((name, t.text("value.on"))),
-            "off" => args.push((name, t.text("value.off"))),
-            _ => args.push((name, value)),
-        }
-    }
-    args
-}
-
 /// The lines for one problem, warning or info finding.
 pub fn finding_lines(t: &Texts, f: &Finding) -> Vec<String> {
+    let text = f.text(t);
     let mut heading = format!(
         "  [{}] {}",
         t.t(&format!("outcome.{}", f.outcome.key())),
-        title(t, f.check)
+        text.title
     );
     if let Some(s) = &f.subject {
         heading.push_str(&format!(" — {s}"));
     }
-    let key = format!("health.{}.{}", f.check.key(), f.outcome.key());
-    let a = args(t, f);
-    let mut lines = vec![heading, format!("    {}", t.f(&key, &a))];
-    let fix = t.f(&format!("health.{}.fix", f.check.key()), &a);
-    lines.push(t.f("health.fix", &[("text", &fix)]));
+    let mut lines = vec![heading, format!("    {}", text.message)];
+    lines.push(t.f("health.fix", &[("text", &text.fix)]));
     if let Some(url) = f.link {
         lines.push(t.f("health.link", &[("url", &url)]));
     }
