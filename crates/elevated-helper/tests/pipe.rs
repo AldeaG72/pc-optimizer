@@ -129,6 +129,103 @@ fn the_app_gives_up_when_the_helper_exits_without_connecting() {
     assert_eq!(result, Err(RunError::NoConnection));
 }
 
+/// Presses Ctrl+Shift+F10, as the user does in the match.
+fn press_ctrl_shift_f10() {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP,
+        VIRTUAL_KEY, VK_CONTROL, VK_F10, VK_SHIFT,
+    };
+    let key = |vk: VIRTUAL_KEY, up: bool| INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: vk,
+                wScan: 0,
+                dwFlags: if up {
+                    KEYEVENTF_KEYUP
+                } else {
+                    KEYBD_EVENT_FLAGS(0)
+                },
+                time: 0,
+                dwExtraInfo: 0,
+            },
+        },
+    };
+    let inputs = [
+        key(VK_CONTROL, false),
+        key(VK_SHIFT, false),
+        key(VK_F10, false),
+        key(VK_F10, true),
+        key(VK_SHIFT, true),
+        key(VK_CONTROL, true),
+    ];
+    // SAFETY: a plain array of keyboard inputs.
+    unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
+}
+
+/// The whole benchmark path on a CI runner: the frame demo draws, the helper waits for the
+/// key, a simulated Ctrl+Shift+F10 starts the run, PresentMon measures it.
+#[test]
+#[ignore = "presses keys and runs PresentMon; runs only in CI (PCO_CI_REAL_TWEAKS=1)"]
+fn ci_benchmark_through_the_helper() {
+    assert!(
+        std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true")
+            && std::env::var("PCO_CI_REAL_TWEAKS").as_deref() == Ok("1"),
+        "refusing to press keys and run PresentMon outside CI"
+    );
+    let demo =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(r"..\..\target\debug\pco-frame-demo.exe");
+    let mut demo = Command::new(demo).arg("90").spawn().unwrap();
+    std::thread::sleep(Duration::from_secs(3));
+
+    let data = temp_dir("bench");
+    let server = Server::create().unwrap();
+    let child = Command::new(HELPER)
+        .args([
+            "--pipe",
+            server.name(),
+            "--parent",
+            &std::process::id().to_string(),
+        ])
+        .env("PCO_DATA_DIR", &data)
+        .spawn()
+        .unwrap();
+    let process = HelperProcess::Child(child);
+    let request = Request::Bench {
+        target: "pco-frame-demo.exe".into(),
+        after: false,
+        runs: 1,
+        duration: 10,
+        warmup: 0,
+    };
+    let never = AtomicBool::new(false);
+    let mut events = Vec::new();
+    let result = pipe::exchange(server, &process, &request, &never, &mut |e| {
+        println!("{e:?}");
+        if matches!(e, Event::BenchWaitingKey { .. }) {
+            std::thread::spawn(|| {
+                std::thread::sleep(Duration::from_millis(800));
+                press_ctrl_shift_f10();
+            });
+        }
+        events.push(e.clone());
+    });
+    let _ = demo.kill();
+    let _ = demo.wait();
+    result.unwrap();
+    let run = events.iter().find_map(|e| match e {
+        Event::BenchRun { metrics, .. } => Some(*metrics),
+        _ => None,
+    });
+    let m = run.unwrap_or_else(|| panic!("no run measured: {events:?}"));
+    println!(
+        "::notice title=Benchmark through the helper::average FPS {:.1}, 1% low {:.1}",
+        m.avg_fps, m.low1_fps
+    );
+    assert!(m.avg_fps > 0.0 && m.low1_fps <= m.avg_fps + 0.05);
+    assert!(matches!(events.last(), Some(Event::Done { .. })));
+}
+
 /// Real change on a throwaway Windows: Game Mode applied and undone through the helper.
 #[test]
 #[ignore = "changes real settings; runs only in CI (PCO_CI_REAL_TWEAKS=1)"]

@@ -85,8 +85,15 @@ jobs:
       - name: Apply and undo every recipe for real
         run: cargo test -p pco-core --test real_recipes -- --ignored --test-threads=1 --nocapture
 
-      - name: Elevated helper over the real pipe (apply → undo)
-        run: cargo test -p pco-helper --test pipe -- --ignored --test-threads=1 --nocapture
+      - name: Elevated helper over the real pipe (apply → undo, benchmark with the hot key)
+        shell: pwsh
+        run: |
+          ./scripts/fetch-presentmon.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build -q -p pco-frame-demo
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test -p pco-helper --test pipe -- --ignored --test-threads=1 --nocapture
+          exit $LASTEXITCODE
 
       - name: Smoke-test the pco binary
         shell: pwsh
