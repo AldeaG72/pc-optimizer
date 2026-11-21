@@ -161,7 +161,7 @@ powershell -ExecutionPolicy Bypass -File C:\pco\vm-snapshot.ps1 -Out C:\pco\dupa
 ```
 
 Trebuie să vezi:
-- „O sesiune anterioară (#…) a fost întreruptă. Am anulat-o automat: 1 modificări restaurate.”
+- „O sesiune anterioară (#…) a fost întreruptă. Am anulat-o automat: 1 modificare restaurată.”
 - în listă, sesiunea apare „anulată”;
 - la final, cu verde, **`IDENTICAL`**.
 

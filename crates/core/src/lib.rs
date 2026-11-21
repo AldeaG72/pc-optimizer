@@ -11,6 +11,7 @@ pub mod engine;
 pub mod guard;
 pub mod health;
 pub mod hw;
+pub mod i18n;
 pub mod journal;
 pub mod recipe;
 

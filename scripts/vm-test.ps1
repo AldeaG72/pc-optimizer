@@ -154,7 +154,7 @@ if (-not $elevated) {
     Remove-Item Env:PCO_TEST_STOP_AFTER_CHANGES
     Check 'C' 'pco stops after one change (exit 99)' ($r.Code -eq 99) "exit $($r.Code)"
     $r = Pco --lang ro status
-    Check 'C' 'next start undoes it and says so' ($r.Code -eq 0 -and $r.Out.Contains('Am anulat-o automat: 1 modificări restaurate.'))
+    Check 'C' 'next start undoes it and says so' ($r.Code -eq 0 -and $r.Out.Contains('Am anulat-o automat: 1 modificare restaurată.'))
     $s = Snap 'c-after' 'c-before'
     Check 'C' 'registry exactly as before the interrupted apply' ($s.Code -eq 0)
 

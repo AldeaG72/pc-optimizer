@@ -12,7 +12,8 @@ pub mod bench;
 pub mod bench_windows;
 pub mod format;
 pub mod health;
-pub mod i18n;
+/// Texts in Romanian and English (shared with the app).
+pub use pco_core::i18n;
 pub mod testing;
 
 /// The recipes compiled into the program (built by `pco-core`).

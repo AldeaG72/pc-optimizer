@@ -113,7 +113,7 @@ jobs:
           $statusCode = $LASTEXITCODE
           Write-Host $out
           if ($statusCode -ne 0) { Fail "pco status failed ($statusCode). Output: $out" }
-          if ($out -notmatch 'was interrupted\. I undid it automatically: 1 changes restored') {
+          if ($out -notmatch 'was interrupted\. I undid it automatically: 1 change restored') {
             Fail "the recovery message is missing. Output: $out"
           }
           $cmp = (./scripts/vm-snapshot.ps1 -Out "$snaps\after" -CompareWith "$snaps\before" 6>&1) -join ' | '

@@ -173,11 +173,46 @@ fn translation(lang: Lang) -> BTreeMap<String, String> {
     serde_yaml_ng::from_str(i18n::source(lang)).unwrap()
 }
 
+/// Placeholder names; a plural choice `{n|one|few|other}` counts as `n`.
 fn placeholders(text: &str) -> BTreeSet<String> {
     text.split('{')
         .skip(1)
-        .filter_map(|s| s.split_once('}').map(|(name, _)| name.to_owned()))
+        .filter_map(|s| {
+            s.split_once('}')
+                .map(|(inner, _)| inner.split('|').next().unwrap_or_default().to_owned())
+        })
         .collect()
+}
+
+#[test]
+fn plurals_are_correct_in_both_languages() {
+    let ro = Texts::load(Lang::Ro).unwrap();
+    let en = Texts::load(Lang::En).unwrap();
+    assert_eq!(ro.f("bench.forgot", &[("count", &1)]), "Am șters 1 rulare.");
+    assert_eq!(ro.f("bench.forgot", &[("count", &3)]), "Am șters 3 rulări.");
+    assert_eq!(
+        ro.f("bench.forgot", &[("count", &20)]),
+        "Am șters 20 de rulări."
+    );
+    assert_eq!(en.f("bench.forgot", &[("count", &1)]), "Deleted 1 run.");
+    assert_eq!(en.f("bench.forgot", &[("count", &2)]), "Deleted 2 runs.");
+    // Every plural choice has 3 forms in Romanian and 2 in English.
+    for (lang, forms) in [(Lang::Ro, 3), (Lang::En, 2)] {
+        for (key, text) in translation(lang) {
+            for inner in text
+                .split('{')
+                .skip(1)
+                .filter_map(|s| s.split_once('}'))
+                .map(|(i, _)| i)
+            {
+                let parts = inner.split('|').count();
+                assert!(
+                    parts == 1 || parts == forms + 1,
+                    "`{key}` ({lang:?}): {{{inner}}}"
+                );
+            }
+        }
+    }
 }
 
 #[test]
@@ -504,7 +539,7 @@ fn interrupted_session_is_undone_at_startup() {
     let (exit, out) = w.ro(Cmd::Status);
     assert_eq!(exit, Exit::Ok, "{out}");
     assert!(
-        out.contains("a fost întreruptă. Am anulat-o automat: 1 modificări restaurate."),
+        out.contains("a fost întreruptă. Am anulat-o automat: 1 modificare restaurată."),
         "{out}"
     );
     assert!(out.contains("anulată"), "{out}");
