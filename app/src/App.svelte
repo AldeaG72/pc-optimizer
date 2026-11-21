@@ -1,10 +1,15 @@
 <script lang="ts">
   import Sidebar from "./components/Sidebar.svelte";
   import TitleBar from "./components/TitleBar.svelte";
+  import Tour from "./components/Tour.svelte";
   import Home from "./pages/Home.svelte";
   import Settings from "./pages/Settings.svelte";
   import Tweaks from "./pages/Tweaks.svelte";
-  import { ui } from "./lib/state.svelte";
+  import { loadSettings, persist, ui } from "./lib/state.svelte";
+
+  $effect(() => {
+    void loadSettings();
+  });
 
   $effect(() => {
     const root = document.documentElement;
@@ -12,22 +17,34 @@
     if (ui.theme === "system") delete root.dataset.theme;
     else root.dataset.theme = ui.theme;
   });
+
+  // Save whenever a saved choice changes (after the first load).
+  $effect(() => {
+    void [ui.lang, ui.theme, ui.collapsed];
+    if (ui.loaded) void persist();
+  });
 </script>
 
 <div class="window">
   <TitleBar />
-  <div class="body">
-    <Sidebar />
-    <main>
-      {#if ui.page === "home"}
-        <Home />
-      {:else if ui.page === "tweaks"}
-        <Tweaks />
-      {:else}
-        <Settings />
-      {/if}
-    </main>
-  </div>
+  {#if !ui.loaded}
+    <div class="body"></div>
+  {:else if ui.tourOpen}
+    <Tour />
+  {:else}
+    <div class="body">
+      <Sidebar />
+      <main>
+        {#if ui.page === "home"}
+          <Home />
+        {:else if ui.page === "tweaks"}
+          <Tweaks />
+        {:else}
+          <Settings />
+        {/if}
+      </main>
+    </div>
+  {/if}
 </div>
 
 <style>

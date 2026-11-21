@@ -84,6 +84,44 @@ export type HelperRequest =
   | { op: "undo"; ids: string[] }
   | { op: "undo_all" };
 
+export interface Settings {
+  lang: Lang | null;
+  theme: "system" | "light" | "dark";
+  sidebarCollapsed: boolean;
+  tourAccepted: number | null;
+  restorePoint: boolean;
+  dailyBackup: boolean;
+  showAdvanced: boolean;
+  gameMonitor: string | null;
+}
+
+export const defaultSettings = (): Settings => ({
+  lang: null,
+  theme: "system",
+  sidebarCollapsed: false,
+  tourAccepted: null,
+  restorePoint: false,
+  dailyBackup: false,
+  showAdvanced: false,
+  gameMonitor: null,
+});
+
+/** Outside the app: kept in memory only (tests set it directly). */
+export const memory = { settings: { ...defaultSettings(), tourAccepted: 1 } as Settings };
+
+export async function getSettings(): Promise<Settings> {
+  return isTauri() ? call<Settings>("get_settings") : { ...memory.settings };
+}
+
+export async function saveSettings(settings: Settings): Promise<void> {
+  if (isTauri()) await call<void>("save_settings", { settings });
+  else memory.settings = { ...settings };
+}
+
+export async function tourVersion(): Promise<number> {
+  return isTauri() ? call<number>("tour_version") : 1;
+}
+
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<T>(cmd, args);

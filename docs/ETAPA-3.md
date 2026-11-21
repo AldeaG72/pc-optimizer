@@ -13,7 +13,7 @@ Etapa are patru părți. Fiecare se termină cu CI verde și se unește separat 
 - [x] **3.1 Designul ecranelor**: cele 5 ecrane din SPEC 3 (Tur, Acasă, Tweak-uri, Aplicare, Setări), luminos și
   întunecat, în română, ca pagini de previzualizare. Proprietarul le aprobă (sau cere schimbări) **înainte** de programare.
   *(Pânza „PC Optimizer – ecrane”, privată, la proprietar: https://claude.ai/artifact/2EyUo45QHBeXLCTaX1GiMc.
-  Aprobată fără schimbări pe 2026-11-21. Rămâne deschis pentru 3.8: cum pornește măsurarea când ești în joc.)*
+  Aprobată fără schimbări pe 2026-11-21. Pentru 3.8, măsurarea pornește cu Ctrl+Shift+F10 în joc (SPEC 4.4).)*
 - [x] **3.2 `crates/elevated-helper`** (`pco-helper.exe`):
   - pornit de aplicație cu UAC doar când e nevoie; se închide singur după ce termină;
   - vorbește cu aplicația printr-un canal local (named pipe) pe care îl poate deschide doar utilizatorul curent;

@@ -5,6 +5,7 @@
 // No console window behind the app in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod settings;
 mod views;
 
 use std::path::PathBuf;
@@ -18,6 +19,7 @@ use pco_core::recipe;
 use pco_helper::protocol::Event;
 use tauri::ipc::Channel;
 
+use settings::Settings;
 use views::{HelperRequest, RecipeView};
 
 /// `%LOCALAPPDATA%\PcOptimizer`, or `PCO_DATA_DIR` (tests), like `pco` and the helper.
@@ -72,6 +74,25 @@ fn system_lang() -> &'static str {
         recipe::Lang::Ro => "ro",
         recipe::Lang::En => "en",
     }
+}
+
+/// The app's saved choices (defaults if there are none yet).
+#[tauri::command]
+fn get_settings() -> Result<Settings, String> {
+    Ok(Settings::load(&data_dir()?.join("settings.json")))
+}
+
+#[tauri::command]
+fn save_settings(settings: Settings) -> Result<(), String> {
+    let dir = data_dir()?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    settings.save(&dir.join("settings.json"))
+}
+
+/// The tour version the user must accept (bumped when the disclaimer changes).
+#[tauri::command]
+fn tour_version() -> u32 {
+    settings::TOUR_VERSION
 }
 
 /// Every built-in recipe with its state on this PC. Reads only.
@@ -138,6 +159,9 @@ fn main() {
     let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             system_lang,
+            get_settings,
+            save_settings,
+            tour_version,
             recipes,
             health,
             bench_history,

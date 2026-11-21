@@ -100,6 +100,11 @@ Decizii pentru Etapa 2 (2026-11-21):
 - **Scădere reală de FPS:** FPS-ul mediu „după” e cu peste 3% sub „înainte” **și** diferența e mai mare decât variația dintre cele 3 rulări. Doar atunci se propune anularea.
 - **Istoric:** toate rezultatele se păstrează local, în jurnal (fără internet); se pot șterge oricând. Afișarea istoricului e opțiunea din Setări (Etapa 3).
 
+Decizie pentru Etapa 3 (2026-11-21):
+- **Pornirea măsurării în aplicație:** utilizatorul apasă **Ctrl+Shift+F10** în joc, când e în meci. Aplicația ascultă
+  combinația doar cât așteaptă o măsurare (funcția standard Windows pentru taste globale, ca Discord/OBS; nimic în
+  procesul jocului). Un sunet scurt anunță începutul și sfârșitul fiecărei rulări. `pco` rămâne cu Enter.
+
 ### 4.5 Mod joc (în tray)
 Detectează jocul pornit; fiecare acțiune se bifează separat: închide aplicațiile alese (listă sugerată + bife; se redeschid după), plan de alimentare maxim, notificări oprite, update-uri din fundal pe pauză. La ieșirea din joc, totul revine. Consum țintă: sub 30 MB RAM, CPU aproape zero. Nu atinge procesul jocului.
 
