@@ -5,7 +5,14 @@
 
 import type { Lang } from "./i18n";
 import { isTauri } from "./window";
-import { sampleEvents, sampleHome, sampleRecipes } from "./sample";
+import {
+  sampleCancel,
+  sampleEvents,
+  sampleGames,
+  sampleHome,
+  sampleRecipes,
+  sampleStatus,
+} from "./sample";
 
 export type Category =
   | "windows" | "gaming" | "power" | "input" | "network" | "audio" | "debloat"
@@ -76,13 +83,19 @@ export type HelperEvent =
   | { event: "recovered"; session: number; restored: number }
   | { event: "started"; id: string }
   | { event: "result"; id: string; outcome: Outcome }
+  | { event: "bench_waiting_game"; processes: string[] }
+  | { event: "bench_waiting_key"; run: number; runs: number }
+  | { event: "bench_measuring"; run: number; seconds: number }
+  | { event: "bench_run"; run: number; metrics: Metrics }
+  | { event: "bench_finished"; series: number; runs: number }
   | { event: "done"; restart: Restart }
   | { event: "error"; message: string };
 
 export type HelperRequest =
   | { op: "apply"; ids: string[] }
   | { op: "undo"; ids: string[] }
-  | { op: "undo_all" };
+  | { op: "undo_all" }
+  | { op: "bench"; target: string; label: "before" | "after"; runs: number; duration: number; warmup: number };
 
 export interface Settings {
   lang: Lang | null;
@@ -199,4 +212,62 @@ export async function runHelper(
 /** "Restart now" after applying (only on the user's click). */
 export async function restart(kind: Exclude<Restart, "none">): Promise<void> {
   if (isTauri()) await call<void>("restart", { kind });
+}
+
+export interface Metrics {
+  frames: number;
+  seconds: number;
+  avg_fps: number;
+  low1_fps: number;
+  avg_frametime_ms: number;
+}
+
+export interface Summary {
+  runs: number;
+  avg_fps: number;
+  low1_fps: number;
+  avg_frametime_ms: number;
+  fps_spread: number;
+}
+
+export interface Verdict {
+  target: string;
+  comparison: {
+    before: Summary;
+    after: Summary;
+    fps_change_pct: number;
+    low1_change_pct: number;
+    significant_drop: boolean;
+  };
+  kind: "better" | "same" | "drop";
+  undoIds: string[];
+}
+
+export interface BenchGame {
+  key: string;
+  name: string;
+  installed: boolean;
+  canLaunch: boolean;
+  precise: boolean;
+}
+
+export async function benchGames(): Promise<BenchGame[]> {
+  return isTauri() ? call<BenchGame[]>("bench_games") : sampleGames();
+}
+
+export async function launchGame(key: string): Promise<void> {
+  if (isTauri()) await call<void>("launch_game", { key });
+}
+
+/** The latest verdict for `target`, and the newest "before" still waiting for its "after". */
+export async function benchStatus(
+  target: string | null,
+): Promise<{ verdict: Verdict | null; openBefore: string | null }> {
+  return isTauri() ? call("bench_status", { target }) : sampleStatus(target);
+}
+
+/** Stops a running benchmark (the runs measured so far are kept). */
+export async function cancelHelper(): Promise<void> {
+  if (isTauri()) await call<void>("cancel_helper");
+  else sampleCancel();
 }

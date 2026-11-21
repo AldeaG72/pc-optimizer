@@ -162,9 +162,20 @@ pub fn recipe_views(
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum HelperRequest {
-    Apply { ids: Vec<String> },
-    Undo { ids: Vec<String> },
+    Apply {
+        ids: Vec<String>,
+    },
+    Undo {
+        ids: Vec<String>,
+    },
     UndoAll,
+    Bench {
+        target: String,
+        label: String,
+        runs: u32,
+        duration: u32,
+        warmup: u32,
+    },
 }
 
 impl HelperRequest {
@@ -186,6 +197,24 @@ impl HelperRequest {
             HelperRequest::Apply { ids } => Request::Apply { ids: check(ids)? },
             HelperRequest::Undo { ids } => Request::Undo { ids: check(ids)? },
             HelperRequest::UndoAll => Request::UndoAll,
+            HelperRequest::Bench {
+                target,
+                label,
+                runs,
+                duration,
+                warmup,
+            } => {
+                let request = Request::Bench {
+                    target: target.clone(),
+                    after: label == "after",
+                    runs: *runs,
+                    duration: *duration,
+                    warmup: *warmup,
+                };
+                // The same checks the helper makes, before showing a UAC prompt.
+                pco_helper::protocol::parse_request(&request.to_line())
+                    .map_err(|r| format!("{r:?}"))?
+            }
         })
     }
 }

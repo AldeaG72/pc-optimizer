@@ -37,7 +37,7 @@ describe("Tweaks", () => {
   it("'Recommended' ticks the safe tweaks for this PC", async () => {
     render(Tweaks);
     await screen.findByRole("switch", { name: DVR });
-    await fireEvent.click(screen.getByRole("button", { name: "Recomandate", exact: true }));
+    await fireEvent.click(screen.getByRole("button", { name: /^Recomandate$/ }));
     expect(pending.apply).toEqual(["gaming.game-dvr-off"]);
   });
 

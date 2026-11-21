@@ -24,7 +24,10 @@ Etapa are patru părți. Fiecare se termină cu CI verde și se unește separat 
     „pentru utilizatorul curent” ar ajunge la alt utilizator).
   *(În plus: jurnalul stă în folderul utilizatorului, deci orice program pornit de el l-ar putea modifica; helper-ul
   anulează doar intrări care arată exact spre ținta rețetei incluse pe care o numesc. Celălalt capăt al canalului nu
-  poate „împrumuta” drepturile helper-ului. Testat în CI: aplicare → anulare reală prin helper, 2026-11-21.)*
+  poate „împrumuta” drepturile helper-ului. Testat în CI: aplicare → anulare reală prin helper, 2026-11-21.
+  Pentru 3.8, helper-ul face și benchmark-ul (PresentMon cere admin, iar un UAC în mijlocul jocului nu e o opțiune):
+  primește doar un joc suportat sau un nume simplu de .exe, folosit ca filtru PresentMon, și numere în limite fixe;
+  nu schimbă nicio setare.)*
 - [x] **3.3 Scheletul aplicației** (`app/`): fereastră ~1100×720 cu bară de titlu proprie, fundal Mica, bară laterală
   pliabilă, temă după Windows, fontul Inter și iconițele Lucide incluse local (fără nicio cerere pe internet).
   Traducerile RO/EN dintr-o singură sursă comună cu `pco`, cu forme de plural corecte („1 rulare”, „3 rulări”).

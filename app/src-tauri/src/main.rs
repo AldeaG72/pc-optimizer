@@ -5,11 +5,14 @@
 // No console window behind the app in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod benchview;
 mod home;
 mod settings;
 mod views;
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use pco_core::backend::windows::{WindowsRegistry, WindowsServices};
 use pco_core::backend::ReadOnlyRegistry;
@@ -145,19 +148,77 @@ async fn bench_history() -> Result<Vec<Series>, String> {
     blocking(|| journal()?.benchmark_series(None).map_err(|e| e.to_string())).await
 }
 
+/// The running helper's stop switch (a benchmark can be stopped from the interface).
+#[derive(Default)]
+struct HelperState {
+    cancel: Mutex<Option<Arc<AtomicBool>>>,
+}
+
 /// Starts the helper (UAC prompt) for one request and streams its events to the interface.
 #[tauri::command]
-async fn run_helper(request: HelperRequest, on_event: Channel<Event>) -> Result<(), String> {
+async fn run_helper(
+    request: HelperRequest,
+    on_event: Channel<Event>,
+    state: tauri::State<'_, HelperState>,
+) -> Result<(), String> {
     let request = request.to_request()?;
+    let cancel = Arc::new(AtomicBool::new(false));
+    if let Ok(mut slot) = state.cancel.lock() {
+        *slot = Some(Arc::clone(&cancel));
+    }
     blocking(move || {
         let helper = helper_path()?;
-        pco_helper::pipe::run(&helper, &request, true, &mut |event| {
+        pco_helper::pipe::run(&helper, &request, true, &cancel, &mut |event| {
             let _ = on_event.send(event.clone());
         })
         .map_err(|e| match e {
             pco_helper::pipe::RunError::Cancelled => "cancelled".to_owned(),
             other => other.to_string(),
         })
+    })
+    .await
+}
+
+/// "Stop" on a running benchmark: the runs measured so far are kept.
+#[tauri::command]
+fn cancel_helper(state: tauri::State<'_, HelperState>) {
+    if let Ok(slot) = state.cancel.lock() {
+        if let Some(flag) = slot.as_ref() {
+            flag.store(true, Ordering::SeqCst);
+        }
+    }
+}
+
+/// The six games for the benchmark card, with whether each is installed.
+#[tauri::command]
+async fn bench_games() -> Result<Vec<benchview::BenchGame>, String> {
+    blocking(|| Ok(benchview::games(&pco_core::hw::windows::installed_games()))).await
+}
+
+/// Starts a game through its launcher (no administrator rights; nothing in the game).
+#[tauri::command]
+async fn launch_game(key: String) -> Result<(), String> {
+    blocking(move || {
+        let game = pco_core::bench::target::resolve(&key)
+            .and_then(|t| t.game)
+            .ok_or("not a supported game")?;
+        pco_core::hw::windows::launch_game(game)
+    })
+    .await
+}
+
+/// The latest before → after verdict for `target`, and the newest "before" still waiting
+/// for its "after".
+#[tauri::command]
+async fn bench_status(target: Option<String>) -> Result<serde_json::Value, String> {
+    blocking(move || {
+        let journal = journal()?;
+        let verdict = match target {
+            Some(t) => benchview::verdict(&journal, &t)?,
+            None => None,
+        };
+        let open = benchview::open_before(&journal)?;
+        Ok(serde_json::json!({ "verdict": verdict, "openBefore": open }))
     })
     .await
 }
@@ -193,6 +254,7 @@ fn restart(kind: String) -> Result<(), String> {
 
 fn main() {
     let app = tauri::Builder::default()
+        .manage(HelperState::default())
         .invoke_handler(tauri::generate_handler![
             system_lang,
             get_settings,
@@ -202,6 +264,10 @@ fn main() {
             home,
             bench_history,
             run_helper,
+            cancel_helper,
+            bench_games,
+            launch_game,
+            bench_status,
             restart
         ])
         .run(tauri::generate_context!());

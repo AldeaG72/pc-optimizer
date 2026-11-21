@@ -5,7 +5,9 @@
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import X from "@lucide/svelte/icons/x";
   import { onMount } from "svelte";
+  import BenchPanel from "../components/BenchPanel.svelte";
   import {
+    benchStatus,
     restart,
     runHelper,
     type BlockReason,
@@ -19,7 +21,7 @@
   import { byId, clearPending, loadCatalog, pending } from "../lib/tweaks.svelte";
 
   type Line = { id: string; name: string; state: "waiting" | "working" | "ok" | "skipped" | "error"; note: string };
-  type Phase = "running" | "done" | "cancelled" | "failed";
+  type Phase = "bench" | "running" | "done" | "cancelled" | "failed";
 
   let phase = $state<Phase>("running");
   let lines = $state<Line[]>([]);
@@ -155,8 +157,41 @@
     }
   }
 
+  // "Measure FPS first": the benchmark card comes before applying.
+  let benchSaved = $state(false);
+  let openBefore = $state<string | null>(null);
+
+  function prepare() {
+    lines = [...pending.undo, ...pending.apply].map((id) => ({
+      id,
+      name: byId(id)?.name ?? id,
+      state: "waiting",
+      note: t("app.apply.waiting"),
+    }));
+  }
+
+  async function afterRun() {
+    if (phase === "done" || phase === "failed") openBefore = (await benchStatus(null)).openBefore;
+  }
+
+  async function applyNow() {
+    await run();
+    await afterRun();
+  }
+
+  /** A real FPS drop: undo what was applied since the "before" measurement. */
+  async function undoSince(ids: string[]) {
+    clearPending();
+    pending.undo = ids;
+    openBefore = null;
+    await applyNow();
+  }
+
   onMount(() => {
-    void run();
+    if (ui.benchFirst) {
+      phase = "bench";
+      prepare();
+    } else void applyNow();
   });
 
   const restartButton: Record<Exclude<Restart, "none">, string> = {
@@ -171,7 +206,10 @@
     <button class="back" onclick={() => (ui.page = "tweaks")} disabled={phase === "running"}>
       <ChevronLeft size={14} aria-hidden="true" />{t("app.apply.back")}
     </button>
-    {#if phase === "running"}
+    {#if phase === "bench"}
+      <h1>{t("app.bench.title_before")}</h1>
+      <p class="muted">{t("app.bench.intro_before")}</p>
+    {:else if phase === "running"}
       <h1>{t("app.apply.running", { count: lines.length })}</h1>
       <p class="muted">{t("app.apply.progress", { done, total: lines.length })} {t("app.apply.uac")}</p>
     {:else if phase === "done"}
@@ -215,15 +253,24 @@
         </li>
       {/each}
     </ul>
-    <aside class="card side">
-      {#if phase === "running"}
-        <p class="muted">{t("app.apply.keep_open")}</p>
+    <div class="side-col">
+      {#if phase === "bench"}
+        <BenchPanel label="before" onSaved={() => (benchSaved = true)} />
+        <button class="btn" class:primary={benchSaved} onclick={() => void applyNow()}>
+          {t(benchSaved ? "app.bench.apply_now" : "app.bench.skip")}
+        </button>
+      {:else if phase === "running"}
+        <aside class="card side"><p class="muted">{t("app.apply.keep_open")}</p></aside>
       {:else if phase === "cancelled"}
-        <button class="btn primary" onclick={() => void run()}>{t("app.apply.retry")}</button>
+        <aside class="card side">
+          <button class="btn primary" onclick={() => void applyNow()}>{t("app.apply.retry")}</button>
+        </aside>
+      {:else if openBefore}
+        <BenchPanel label="after" target={openBefore} onUndo={(ids) => void undoSince(ids)} />
       {:else}
-        <p class="muted">{t("app.apply.done_text")}</p>
+        <aside class="card side"><p class="muted">{t("app.apply.done_text")}</p></aside>
       {/if}
-    </aside>
+    </div>
   </div>
 </div>
 
@@ -325,6 +372,11 @@
   }
   .note.working {
     color: var(--accent-text);
+  }
+  .side-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
   .side {
     padding: 16px 18px;

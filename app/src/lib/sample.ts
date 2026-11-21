@@ -1,7 +1,7 @@
 // Sample answers for when the interface runs outside the app (tests, browser previews).
 // Nothing here touches the PC.
 
-import type { HelperEvent, HelperRequest, HomeView, Recipe } from "./backend";
+import type { BenchGame, HelperEvent, HelperRequest, HomeView, Recipe, Verdict } from "./backend";
 
 /** A laptop like the owner's (Stage 1 data), in Romanian. */
 export function sampleHome(): HomeView {
@@ -96,7 +96,82 @@ export function sampleRecipes(lang: Lang): Recipe[] {
   ];
 }
 
+/** Sample benchmark results kept in memory (what a real journal would hold). */
+export const sampleBench = {
+  before: null as number[] | null,
+  after: null as number[] | null,
+  cancelled: false,
+};
+
+export function sampleCancel(): void {
+  sampleBench.cancelled = true;
+}
+
+export function sampleGames(): BenchGame[] {
+  return [
+    { key: "cs2", name: "Counter-Strike 2", installed: true, canLaunch: true, precise: true },
+    { key: "valorant", name: "VALORANT", installed: true, canLaunch: true, precise: false },
+    { key: "fortnite", name: "Fortnite", installed: false, canLaunch: false, precise: true },
+  ];
+}
+
+export function sampleStatus(target: string | null): { verdict: Verdict | null; openBefore: string | null } {
+  const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const summary = (xs: number[]) => ({
+    runs: xs.length,
+    avg_fps: avg(xs),
+    low1_fps: avg(xs) * 0.6,
+    avg_frametime_ms: 1000 / avg(xs),
+    fps_spread: Math.max(...xs) - Math.min(...xs),
+  });
+  const { before, after } = sampleBench;
+  let verdict: Verdict | null = null;
+  if (target && before && after) {
+    const b = summary(before);
+    const a = summary(after);
+    const change = ((a.avg_fps - b.avg_fps) / b.avg_fps) * 100;
+    const drop = change < -3 && b.avg_fps - a.avg_fps > Math.max(b.fps_spread, a.fps_spread);
+    verdict = {
+      target,
+      comparison: {
+        before: b,
+        after: a,
+        fps_change_pct: change,
+        low1_change_pct: change,
+        significant_drop: drop,
+      },
+      kind: drop ? "drop" : change >= 1 ? "better" : "same",
+      undoIds: drop ? ["gaming.game-dvr-off"] : [],
+    };
+  }
+  return { verdict, openBefore: before && !after ? "cs2" : null };
+}
+
+function sampleBenchEvents(request: Extract<HelperRequest, { op: "bench" }>): HelperEvent[] {
+  const fps = request.label === "before" ? [140, 141, 142] : [150, 151, 152];
+  const events: HelperEvent[] = [{ event: "hello", version: 1 }];
+  const done: number[] = [];
+  for (let run = 1; run <= request.runs; run++) {
+    events.push({ event: "bench_waiting_key", run, runs: request.runs });
+    if (sampleBench.cancelled) break;
+    events.push({ event: "bench_measuring", run, seconds: request.duration });
+    const f = fps[(run - 1) % fps.length] ?? 140;
+    done.push(f);
+    events.push({
+      event: "bench_run",
+      run,
+      metrics: { frames: f * 60, seconds: 60, avg_fps: f, low1_fps: f * 0.6, avg_frametime_ms: 1000 / f },
+    });
+  }
+  sampleBench.cancelled = false;
+  if (done.length) sampleBench[request.label] = done;
+  events.push({ event: "bench_finished", series: 1, runs: done.length });
+  events.push({ event: "done", restart: "none" });
+  return events;
+}
+
 export function sampleEvents(request: HelperRequest): HelperEvent[] {
+  if (request.op === "bench") return sampleBenchEvents(request);
   const ids = request.op === "undo_all" ? [] : request.ids;
   const undo = request.op !== "apply";
   return [
