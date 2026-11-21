@@ -2,6 +2,7 @@
   import Sidebar from "./components/Sidebar.svelte";
   import TitleBar from "./components/TitleBar.svelte";
   import Tour from "./components/Tour.svelte";
+  import Apply from "./pages/Apply.svelte";
   import Home from "./pages/Home.svelte";
   import Settings from "./pages/Settings.svelte";
   import Tweaks from "./pages/Tweaks.svelte";
@@ -39,6 +40,8 @@
           <Home />
         {:else if ui.page === "tweaks"}
           <Tweaks />
+        {:else if ui.page === "apply"}
+          <Apply />
         {:else}
           <Settings />
         {/if}

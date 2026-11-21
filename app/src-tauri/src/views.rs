@@ -9,6 +9,14 @@ use pco_core::recipe::{Category, Lang, Profile, Recipe, RegValue, RequiresRestar
 use pco_helper::protocol::{NotApplicableReason, Request};
 use serde::{Deserialize, Serialize};
 
+/// What the Tweaks page reads: every recipe, and whether this PC is a laptop (for the
+/// Laptop profile of "Recommended").
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Catalog {
+    pub recipes: Vec<RecipeView>,
+    pub laptop: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecipeView {

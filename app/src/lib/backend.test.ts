@@ -4,8 +4,8 @@ import { recipes, runHelper, systemLang, type HelperEvent } from "./backend";
 // Outside the app the bridge answers with sample data and never touches the PC.
 describe("backend outside the app", () => {
   it("lists sample recipes in the chosen language", async () => {
-    const ro = await recipes("ro");
-    const en = await recipes("en");
+    const ro = (await recipes("ro")).recipes;
+    const en = (await recipes("en")).recipes;
     expect(ro.map((r) => r.id)).toEqual(en.map((r) => r.id));
     expect(ro[0]?.name).toBe("Captură în fundal (Game DVR) oprită");
     expect(en[0]?.name).toBe("Background capture (Game DVR) off");

@@ -21,7 +21,7 @@ use pco_helper::protocol::Event;
 use tauri::ipc::Channel;
 
 use settings::Settings;
-use views::{HelperRequest, RecipeView};
+use views::HelperRequest;
 
 /// `%LOCALAPPDATA%\PcOptimizer`, or `PCO_DATA_DIR` (tests), like `pco` and the helper.
 fn data_dir() -> Result<PathBuf, String> {
@@ -98,7 +98,7 @@ fn tour_version() -> u32 {
 
 /// Every built-in recipe with its state on this PC. Reads only.
 #[tauri::command]
-async fn recipes(lang: String) -> Result<Vec<RecipeView>, String> {
+async fn recipes(lang: String) -> Result<views::Catalog, String> {
     blocking(move || {
         let recipes =
             recipe::load_embedded(pco_core::embedded::RECIPES).map_err(|e| e.to_string())?;
@@ -106,14 +106,17 @@ async fn recipes(lang: String) -> Result<Vec<RecipeView>, String> {
         let mut journal = journal()?;
         let mut registry = ReadOnlyRegistry(WindowsRegistry::system());
         let mut services = WindowsServices::read_only();
-        Ok(views::recipe_views(
-            &recipes,
-            views::lang_from(&lang),
-            &mut registry,
-            &mut services,
-            &mut journal,
-            SystemInfo::from(&host),
-        ))
+        Ok(views::Catalog {
+            recipes: views::recipe_views(
+                &recipes,
+                views::lang_from(&lang),
+                &mut registry,
+                &mut services,
+                &mut journal,
+                SystemInfo::from(&host),
+            ),
+            laptop: host.form_factor == Some(pco_core::recipe::FormFactor::Laptop),
+        })
     })
     .await
 }
@@ -159,6 +162,35 @@ async fn run_helper(request: HelperRequest, on_event: Channel<Event>) -> Result<
     .await
 }
 
+/// "Restart now" after applying: restarts Explorer, signs out or restarts Windows (5 s).
+/// Only on the user's click; needs no administrator rights.
+#[tauri::command]
+fn restart(kind: String) -> Result<(), String> {
+    let system32 = std::env::var_os("SystemRoot")
+        .map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from)
+        .join("System32");
+    let run = |exe: &str, args: &[&str]| {
+        std::process::Command::new(system32.join(exe))
+            .args(args)
+            .status()
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    };
+    match kind.as_str() {
+        "reboot" => run("shutdown.exe", &["/r", "/t", "5"]),
+        "signout" => run("shutdown.exe", &["/l"]),
+        "explorer" => {
+            run("taskkill.exe", &["/f", "/im", "explorer.exe"])?;
+            let windows = system32.parent().map(PathBuf::from).unwrap_or_default();
+            std::process::Command::new(windows.join("explorer.exe"))
+                .spawn()
+                .map(|_| ())
+                .map_err(|e| e.to_string())
+        }
+        _ => Err(format!("unknown restart kind: {kind}")),
+    }
+}
+
 fn main() {
     let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -169,7 +201,8 @@ fn main() {
             recipes,
             home,
             bench_history,
-            run_helper
+            run_helper,
+            restart
         ])
         .run(tauri::generate_context!());
     if let Err(e) = app {

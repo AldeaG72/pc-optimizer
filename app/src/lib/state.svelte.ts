@@ -11,7 +11,7 @@ import {
   type Settings,
 } from "./backend";
 
-export type Page = "home" | "tweaks" | "settings";
+export type Page = "home" | "tweaks" | "settings" | "apply";
 export type Theme = Settings["theme"];
 
 export const ui = $state({
@@ -25,6 +25,8 @@ export const ui = $state({
   loaded: false,
   /** A recipe to open on the Tweaks page (from "Fix" on Home). */
   focus: null as string | null,
+  /** "Measure FPS first" was chosen before applying. */
+  benchFirst: false,
 });
 
 /** Opens the Tweaks page on one recipe. */

@@ -10,6 +10,8 @@
     { page: "tweaks", key: "app.nav.tweaks", icon: SlidersHorizontal },
     { page: "settings", key: "app.nav.settings", icon: Settings },
   ];
+  // The Apply page belongs to Tweaks.
+  const active = (page: Page) => ui.page === page || (page === "tweaks" && ui.page === "apply");
 </script>
 
 <nav aria-label={t("app.nav.label")} class:collapsed={ui.collapsed}>
@@ -18,8 +20,8 @@
       {@const Icon = item.icon}
       <button
         class="item"
-        class:active={ui.page === item.page}
-        aria-current={ui.page === item.page ? "page" : undefined}
+        class:active={active(item.page)}
+        aria-current={active(item.page) ? "page" : undefined}
         aria-label={ui.collapsed ? t(item.key) : undefined}
         title={ui.collapsed ? t(item.key) : undefined}
         onclick={() => (ui.page = item.page)}

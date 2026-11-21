@@ -131,8 +131,16 @@ export async function systemLang(): Promise<Lang | null> {
   return isTauri() ? call<Lang>("system_lang") : null;
 }
 
-export async function recipes(lang: Lang): Promise<Recipe[]> {
-  return isTauri() ? call<Recipe[]>("recipes", { lang }) : sampleRecipes(lang);
+export interface Catalog {
+  recipes: Recipe[];
+  /** For the Laptop profile of "Recommended". */
+  laptop: boolean;
+}
+
+export async function recipes(lang: Lang): Promise<Catalog> {
+  return isTauri()
+    ? call<Catalog>("recipes", { lang })
+    : { recipes: sampleRecipes(lang), laptop: true };
 }
 
 export type FindingOutcome = "problem" | "warning" | "info";
@@ -186,4 +194,9 @@ export async function runHelper(
   const channel = new Channel<HelperEvent>();
   channel.onmessage = onEvent;
   await call<void>("run_helper", { request, onEvent: channel });
+}
+
+/** "Restart now" after applying (only on the user's click). */
+export async function restart(kind: Exclude<Restart, "none">): Promise<void> {
+  if (isTauri()) await call<void>("restart", { kind });
 }

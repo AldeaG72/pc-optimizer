@@ -35,7 +35,9 @@
     error = null;
     try {
       const lang = ui.lang;
-      [view, list] = await Promise.all([home(lang), recipes(lang)]);
+      const [h, catalog] = await Promise.all([home(lang), recipes(lang)]);
+      view = h;
+      list = catalog.recipes;
     } catch (e) {
       error = String(e);
     }
