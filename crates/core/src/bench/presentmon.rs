@@ -82,8 +82,15 @@ pub fn verify(path: &Path) -> Result<(), PresentMonError> {
 
 /// Arguments for one timed capture of one process into a CSV file. No overlay, no console
 /// statistics; our own session name; stops by itself after `seconds`.
+///
+/// Only the time between presents is used (FPS and 1% low), so display, GPU and input
+/// tracking are off: less overhead, and frames are recorded even where a present never
+/// reaches a real display (a CI runner with the WARP renderer recorded nothing with them on).
 pub fn arguments(process: &str, csv: &Path, seconds: u32) -> Vec<String> {
     vec![
+        "--no_track_display".into(),
+        "--no_track_gpu".into(),
+        "--no_track_input".into(),
         "--process_name".into(),
         process.into(),
         "--output_file".into(),
@@ -141,5 +148,6 @@ mod tests {
         assert!(joined.contains(r"--output_file C:\t\run.csv"));
         assert!(joined.contains("--timed 60 --terminate_after_timed"));
         assert!(joined.contains("--session_name PcOptimizerBench"));
+        assert!(joined.contains("--no_track_display --no_track_gpu --no_track_input"));
     }
 }

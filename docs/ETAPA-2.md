@@ -6,10 +6,10 @@ anularea (SPEC 4.4; deciziile din 2026-11-21 sunt în SPEC).
 
 ## Cum arată pentru utilizator (linie de comandă)
 
-1. `pco bench cs2 --before` → pornește jocul (sau îl folosește dacă e deja pornit).
+1. `pco bench run cs2 --before` → pornește jocul (sau îl folosește dacă e deja pornit).
 2. Intri în meci și apeși **Enter**. Urmează 10 s de așteptare, apoi 60 s de măsurare. Se repetă de 3 ori.
 3. `pco apply …` — aplici tweak-urile.
-4. `pco bench cs2 --after` → la fel, încă 3 rulări.
+4. `pco bench run cs2 --after` → la fel, încă 3 rulări.
 5. La final: `FPS mediu 142 → 151 (+6,3%)`, `1% low 88 → 97 (+10,2%)`, `frametime 7,0 → 6,6 ms`.
    Dacă FPS-ul a scăzut cu adevărat: mesaj și comanda exactă de anulare.
 
@@ -17,29 +17,33 @@ Jocurile fără o hartă fixă de test (VALORANT, League of Legends) apar cu „
 
 ## Sarcini
 
-- [ ] **2.1 PresentMon inclus**: versiunea oficială fixată (GitHub GameTechDev/PresentMon), amprentă SHA-256 verificată,
+- [x] **2.1 PresentMon inclus**: versiunea oficială fixată (GitHub GameTechDev/PresentMon), amprentă SHA-256 verificată,
   descărcată de un script (`scripts/fetch-presentmon.ps1`) — nu se pune în git. Licența MIT în `THIRD-PARTY.md`.
   Îți cer acordul înainte de prima descărcare.
-- [ ] **2.2 Rularea PresentMon**: pornit pentru procesul jocului, 60 s, rezultatul într-un fișier CSV temporar.
+- [x] **2.2 Rularea PresentMon**: pornit pentru procesul jocului, 60 s, rezultatul într-un fișier CSV temporar.
   Cere drepturi de administrator (Windows le cere pentru măsurare). Fără overlay în joc (SPEC).
-- [ ] **2.3 Calculul**: din CSV (coloana `MsBetweenPresents`, a ferestrei de desenare principale) — FPS mediu
+  *(Fără urmărirea ecranului/plăcii video/tastaturii: folosim doar timpul dintre cadre; cu ele pornite, pe runner-ul
+  CI fără placă video nu se înregistra niciun cadru. Dacă măsurarea eșuează, mesajul include ce a spus PresentMon.)*
+- [x] **2.3 Calculul**: din CSV (coloana `MsBetweenPresents`, a ferestrei de desenare principale) — FPS mediu
   (cadre / timp), 1% low (FPS mediu al celui mai lent 1% dintre cadre), frametime mediu. Valorile `NA`
   și rândurile stricate se sar. *(1% low ca medie, nu ca percentila 99: percentila poate „sări” exact peste
   sacade când ele sunt 1% din cadre — prins de teste.)*
-- [ ] **2.4 Istoricul**: tabel nou în jurnalul SQLite (migrarea 2): joc, „înainte/după”, data, rezultatele fiecărei
+- [x] **2.4 Istoricul**: tabel nou în jurnalul SQLite (migrarea 2): joc, „înainte/după”, data, rezultatele fiecărei
   rulări. `pco bench history` și `pco bench forget` (ștergere).
-- [ ] **2.5 Comparația și verdictul**: media celor 3 rulări „înainte” vs. „după”; scădere reală = peste 3% **și**
+- [x] **2.5 Comparația și verdictul**: media celor 3 rulări „înainte” vs. „după”; scădere reală = peste 3% **și**
   peste variația dintre rulări → propunerea de anulare, cu comanda exactă (`pco undo …`).
-- [ ] **2.6 Comanda `pco bench`** (RO/EN): jocurile detectate în Etapa 1 (CS2, Dota 2, Apex, Fortnite, VALORANT, LoL)
+- [x] **2.6 Comanda `pco bench`** (RO/EN): jocurile detectate în Etapa 1 (CS2, Dota 2, Apex, Fortnite, VALORANT, LoL)
   sau orice proces (`--process nume.exe`); pornirea jocului prin launcher (Steam, Epic, Riot, EA); Enter → 10 s → 60 s;
   oprire curată cu Ctrl+C. Blocat dacă PresentMon lipsește sau amprenta nu se potrivește.
+  *(Forma finală: `pco bench run <joc sau nume.exe> --before|--after`, `pco bench compare|history|forget`. EA app nu
+  poate fi pornit automat: pornești jocul tu. Ctrl+C oprește și PresentMon; în istoric intră doar rulările terminate.)*
 - [ ] **2.7 Teste**:
   - calculul, pe fișiere CSV de exemplu (stabil, cu sacade, cu cadre pierdute, gol, stricat);
   - verdictul (creștere, scădere reală, scădere în zgomot);
   - istoricul și migrarea jurnalului;
   - **în CI, pe Windows**: o aplicație mică de test care desenează cadre, măsurată de PresentMon cap-coadă.
 - [ ] **2.8 Testul proprietarului**: pe laptopul tău nu e niciun joc dintre cele 6, așa că măsori o pagină web cu
-  animație 3D (`pco bench --process msedge.exe`) — câteva minute. Măsurarea doar citește, deci e permisă.
+  animație 3D (`pco bench run msedge.exe --before --runs 1`) — câteva minute. Măsurarea doar citește, deci e permisă.
 
 ## Criterii de ieșire
 
