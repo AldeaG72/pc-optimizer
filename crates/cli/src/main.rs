@@ -115,11 +115,15 @@ mod real {
             None => Box::new(WindowsRegistry::system()),
         };
         let mut services = WindowsServices::system();
+        let mut power = pco_core::backend::WindowsPower::system();
+        let mut apps = pco_core::backend::WindowsAppx::system();
         let mut bench = pco_cli::bench_windows::WindowsBench::new();
 
         let mut env = Env {
             registry: &mut *registry,
             services: &mut services,
+            power: &mut power,
+            apps: &mut apps,
             journal: &mut journal,
             host,
             running,

@@ -14,7 +14,7 @@ use pco_cli::app::{run, Env, Exit};
 use pco_cli::args::{self, Cmd};
 use pco_cli::embedded::RECIPES;
 use pco_cli::i18n::{self, Texts};
-use pco_core::backend::memory::{MemoryRegistry, MemoryServices};
+use pco_core::backend::memory::{MemoryAppx, MemoryPower, MemoryRegistry, MemoryServices};
 use pco_core::backend::{RegData, RegRead, RegistryBackend, ServiceStart, ServiceState};
 use pco_core::guard::{Arch, BlockedProcesses, Host};
 use pco_core::journal::{EntryKind, Journal, NewEntry, SessionKind};
@@ -91,6 +91,8 @@ impl BenchDriver for FakeBench {
 struct World {
     reg: MemoryRegistry,
     svc: MemoryServices,
+    power: MemoryPower,
+    apps: MemoryAppx,
     journal: Journal,
     host: Host,
     running: Vec<String>,
@@ -114,6 +116,8 @@ impl World {
                     delayed_auto_start: false,
                 },
             ),
+            power: MemoryPower::new("381b4222-f694-41f0-9685-ff5bb260df2e"),
+            apps: MemoryAppx::new(),
             journal: Journal::open_in_memory().unwrap(),
             host: win11(false),
             running: vec!["explorer.exe".into()],
@@ -126,6 +130,8 @@ impl World {
         let mut env = Env {
             registry: &mut self.reg,
             services: &mut self.svc,
+            power: &mut self.power,
+            apps: &mut self.apps,
             journal: &mut self.journal,
             host: self.host.clone(),
             running: self.running.clone(),
@@ -664,6 +670,8 @@ fn health_without_detection_is_an_error() {
     let mut env = Env {
         registry: &mut w.reg,
         services: &mut w.svc,
+        power: &mut w.power,
+        apps: &mut w.apps,
         journal: &mut w.journal,
         host: w.host.clone(),
         running: vec![],

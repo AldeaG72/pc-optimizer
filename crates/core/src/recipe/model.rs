@@ -198,17 +198,86 @@ pub struct ServiceAction {
     pub startup: ServiceStartup,
 }
 
+/// Makes an existing power plan the active one. GUIDs are stored lowercase, without braces.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PowerPlanAction {
+    pub scheme: String,
+}
+
+/// Sets one power setting of the active plan (the values `powercfg /setacvalueindex` and
+/// `/setdcvalueindex` write). A side left out keeps its value.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PowerSettingAction {
+    pub subgroup: String,
+    pub setting: String,
+    pub ac: Option<u32>,
+    pub dc: Option<u32>,
+}
+
+/// One value in the driver key of every physical network adapter (the "Advanced" tab of the
+/// adapter in Device Manager).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NetAdapterAction {
+    /// Value name, e.g. the standard keyword `*EEE`.
+    pub value: String,
+    pub set: RegValue,
+    /// Only adapters whose driver offers this setting (it lists it under `Ndi\Params`).
+    pub advertised: bool,
+}
+
+/// Removes a preinstalled app for the current user; undo reinstalls it from the copy Windows
+/// keeps.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AppxAction {
+    /// Package name, e.g. `Clipchamp.Clipchamp`.
+    pub package: String,
+}
+
+/// Fixed places the cleanup may empty. The paths are in code, never in a recipe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CleanupTarget {
+    /// The current user's temporary files.
+    UserTemp,
+    /// `C:\Windows\Temp`.
+    WindowsTemp,
+    /// Downloaded Windows Update files that are already installed.
+    UpdateCache,
+    /// Web caches of game launchers (rebuilt on demand).
+    LauncherCaches,
+    /// The Recycle Bin.
+    RecycleBin,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CleanupAction {
+    pub target: CleanupTarget,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Action {
     Registry(RegistryAction),
     Service(ServiceAction),
+    PowerPlan(PowerPlanAction),
+    PowerSetting(PowerSettingAction),
+    NetAdapter(NetAdapterAction),
+    Appx(AppxAction),
+    /// Deletes files; cannot be undone, so it never goes through apply/undo.
+    Cleanup(CleanupAction),
 }
 
 impl Action {
     pub fn needs_admin(&self) -> bool {
         match self {
             Action::Registry(r) => r.hive.needs_admin(),
-            Action::Service(_) => true,
+            // Listing the copies Windows keeps of preinstalled apps needs admin too.
+            Action::Service(_)
+            | Action::PowerPlan(_)
+            | Action::PowerSetting(_)
+            | Action::NetAdapter(_)
+            | Action::Appx(_)
+            | Action::Cleanup(_) => true,
         }
     }
 }
@@ -239,6 +308,22 @@ impl Recipe {
     pub fn needs_admin(&self) -> bool {
         self.actions.iter().any(Action::needs_admin)
     }
+
+    /// A cleanup recipe deletes files: it runs on its own, after a confirmation, and has no
+    /// undo (validation keeps cleanup actions apart from all others).
+    pub fn is_cleanup(&self) -> bool {
+        self.actions.iter().any(|a| matches!(a, Action::Cleanup(_)))
+    }
+
+    pub fn cleanup_targets(&self) -> Vec<CleanupTarget> {
+        self.actions
+            .iter()
+            .filter_map(|a| match a {
+                Action::Cleanup(c) => Some(c.target),
+                _ => None,
+            })
+            .collect()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -266,10 +351,48 @@ pub(crate) struct RawRecipe {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub(crate) enum RawAction {
     Registry(RawRegistryAction),
     Service(ServiceAction),
+    PowerPlan(RawPowerPlanAction),
+    PowerSetting(RawPowerSettingAction),
+    NetAdapter(RawNetAdapterAction),
+    Appx(RawAppxAction),
+    Cleanup(CleanupAction),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawPowerPlanAction {
+    pub scheme: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawPowerSettingAction {
+    pub subgroup: String,
+    pub setting: String,
+    #[serde(default)]
+    pub ac: Option<u32>,
+    #[serde(default)]
+    pub dc: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawNetAdapterAction {
+    pub value: String,
+    pub kind: RegKind,
+    pub set: serde_yaml_ng::Value,
+    #[serde(default)]
+    pub advertised: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawAppxAction {
+    pub package: String,
 }
 
 #[derive(Debug, Deserialize)]

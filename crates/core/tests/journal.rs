@@ -41,11 +41,11 @@ fn reg_entry<'a>(
 fn creates_folder_and_schema_and_reopens() {
     let path = temp_db("reopen");
     let j = Journal::open(&path).unwrap();
-    assert_eq!(j.schema_version().unwrap(), 2);
+    assert_eq!(j.schema_version().unwrap(), 3);
     drop(j);
     assert!(path.exists());
     let j = Journal::open(&path).unwrap();
-    assert_eq!(j.schema_version().unwrap(), 2);
+    assert_eq!(j.schema_version().unwrap(), 3);
     assert!(j.sessions().unwrap().is_empty());
 }
 
@@ -291,7 +291,7 @@ fn journal_from_a_newer_version_is_not_touched() {
         Journal::open(&path),
         Err(JournalError::NewerSchema {
             found: 99,
-            supported: 2
+            supported: 3
         })
     ));
     assert_eq!(
@@ -299,4 +299,74 @@ fn journal_from_a_newer_version_is_not_touched() {
         before,
         "file must be unchanged"
     );
+}
+
+/// A Stage 2 journal (schema 2) with an applied change keeps it through migration 3, and
+/// can then record the new kinds and several targets for one action.
+#[test]
+fn a_stage_2_journal_keeps_its_entries_through_migration_3() {
+    let path = temp_db("v2-upgrade");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                kind TEXT NOT NULL CHECK (kind IN ('apply', 'undo')),
+                status TEXT NOT NULL CHECK (status IN ('pending', 'applied', 'rolled_back', 'failed')),
+                started_at INTEGER NOT NULL, finished_at INTEGER, app_version TEXT NOT NULL);
+             CREATE TABLE entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER NOT NULL REFERENCES sessions(id),
+                recipe_id TEXT NOT NULL, recipe_version INTEGER NOT NULL,
+                action_index INTEGER NOT NULL,
+                kind TEXT NOT NULL CHECK (kind IN ('registry', 'service')),
+                target TEXT NOT NULL,
+                previous_state TEXT NOT NULL CHECK (json_valid(previous_state)),
+                new_state TEXT NOT NULL CHECK (json_valid(new_state)),
+                status TEXT NOT NULL CHECK (status IN ('pending', 'applied', 'rolled_back', 'failed')),
+                error TEXT, updated_at INTEGER NOT NULL,
+                UNIQUE (session_id, recipe_id, action_index));
+             CREATE INDEX entries_by_recipe ON entries (recipe_id, status);
+             CREATE TABLE benchmarks (id INTEGER PRIMARY KEY AUTOINCREMENT, series INTEGER NOT NULL,
+                target TEXT NOT NULL, label TEXT NOT NULL, created_at INTEGER NOT NULL,
+                frames INTEGER NOT NULL, seconds REAL NOT NULL, avg_fps REAL NOT NULL,
+                low1_fps REAL NOT NULL, avg_frametime_ms REAL NOT NULL, app_version TEXT NOT NULL);
+             INSERT INTO sessions VALUES (1, 'apply', 'applied', 1, 2, '0.1.0');
+             INSERT INTO entries VALUES (1, 1, 'gaming.game-mode-on', 1, 0, 'registry', 'HKCU:x',
+                '{\"state\":\"value_missing\"}', '{\"state\":\"value_missing\"}', 'applied', NULL, 2);
+             PRAGMA user_version = 2;",
+        )
+        .unwrap();
+    }
+    let mut j = Journal::open(&path).unwrap();
+    assert_eq!(j.schema_version().unwrap(), 3);
+    let kept = j.applied_entries("gaming.game-mode-on").unwrap();
+    assert_eq!(kept.len(), 1, "the applied change survives the upgrade");
+    assert_eq!(kept[0].target, "HKCU:x");
+
+    // Two targets for the same action index, and the new kinds.
+    let s = j.begin_session(SessionKind::Apply).unwrap();
+    let state = serde_json::json!({"type": "power_plan", "active": "x"});
+    for (target, kind) in [
+        ("a", EntryKind::Registry),
+        ("b", EntryKind::Registry),
+        ("c", EntryKind::Power),
+        ("d", EntryKind::Appx),
+    ] {
+        j.record_pending(
+            s,
+            &NewEntry {
+                recipe_id: "network.eee-off",
+                recipe_version: 1,
+                action_index: 0,
+                kind,
+                target,
+                previous_state: &state,
+                new_state: &state,
+            },
+        )
+        .unwrap();
+    }
+    assert_eq!(j.entries(s).unwrap().len(), 4);
 }

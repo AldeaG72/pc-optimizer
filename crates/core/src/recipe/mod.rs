@@ -13,6 +13,9 @@ mod validate;
 pub use error::{LoadErrors, RecipeError};
 pub use load::{load_dir, load_embedded, parse_recipe};
 pub use model::{
-    Action, Category, Edition, FormFactor, Hive, I18n, Lang, Platform, Profile, Recipe, RegKind,
-    RegValue, RegistryAction, RegistryOp, RequiresRestart, Risk, ServiceAction, ServiceStartup,
+    Action, AppxAction, Category, CleanupAction, CleanupTarget, Edition, FormFactor, Hive, I18n,
+    Lang, NetAdapterAction, Platform, PowerPlanAction, PowerSettingAction, Profile, Recipe,
+    RegKind, RegValue, RegistryAction, RegistryOp, RequiresRestart, Risk, ServiceAction,
+    ServiceStartup,
 };
+pub use safety::is_protected_package;

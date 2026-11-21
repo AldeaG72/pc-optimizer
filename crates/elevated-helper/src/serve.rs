@@ -2,7 +2,7 @@
 //! result as it happens (the app shows a live list). Works on trait objects, so the tests
 //! drive it with in-memory backends on any OS.
 
-use pco_core::backend::{RegistryBackend, ServiceBackend};
+use pco_core::backend::{AppxBackend, PowerBackend, RegistryBackend, ServiceBackend};
 use pco_core::engine::{
     self, ApplyOutcome, Engine, RecipePlan, RecipeStatus, Snapshot, UndoOutcome,
 };
@@ -10,7 +10,7 @@ use pco_core::guard::{
     check_host, check_no_games, Blocked, BlockedProcesses, Host, PlatformMismatch, SystemInfo,
 };
 use pco_core::journal::{Entry, Journal};
-use pco_core::recipe::{Action, Recipe, RequiresRestart};
+use pco_core::recipe::{Action, Hive, Recipe, RequiresRestart};
 
 use crate::protocol::{
     BlockReason, Event, NotApplicableReason, Outcome, Refusal, Request, Restart, MAX_ID_LEN,
@@ -20,6 +20,8 @@ use crate::protocol::{
 pub struct Env<'a> {
     pub registry: &'a mut dyn RegistryBackend,
     pub services: &'a mut dyn ServiceBackend,
+    pub power: &'a mut dyn PowerBackend,
+    pub apps: &'a mut dyn AppxBackend,
     pub journal: &'a mut Journal,
     pub host: Host,
     /// Executable names of the running processes.
@@ -41,6 +43,8 @@ impl Env<'_> {
             &mut *self.journal,
             system,
         )
+        .with_power(&mut *self.power)
+        .with_apps(&mut *self.apps)
     }
 
     fn recipe(&self, id: &str) -> Option<&Recipe> {
@@ -239,11 +243,7 @@ fn run(
 /// exactly that action's target (same hive, key and value, or the same service). Keys the
 /// engine created must be the action's key or one of its parents.
 fn trusted(entry: &Entry, recipes: &[Recipe]) -> bool {
-    let Some(action) = recipes
-        .iter()
-        .find(|r| r.id == entry.recipe_id)
-        .and_then(|r| r.actions.get(entry.action_index))
-    else {
+    let Some(recipe) = recipes.iter().find(|r| r.id == entry.recipe_id) else {
         return false;
     };
     let (Ok(previous), Ok(new)) = (
@@ -252,7 +252,12 @@ fn trusted(entry: &Entry, recipes: &[Recipe]) -> bool {
     ) else {
         return false;
     };
-    [previous, new].iter().all(|s| matches_action(s, action))
+    // Any action of that recipe: in undo sessions the index is the restore step, and one
+    // adapter setting has an entry per adapter.
+    recipe
+        .actions
+        .iter()
+        .any(|action| [&previous, &new].iter().all(|s| matches_action(s, action)))
 }
 
 fn matches_action(snapshot: &Snapshot, action: &Action) -> bool {
@@ -272,7 +277,34 @@ fn matches_action(snapshot: &Snapshot, action: &Action) -> bool {
                 && value.eq_ignore_ascii_case(&a.value)
                 && missing_keys.iter().all(|k| is_key_or_parent(k, &a.key))
         }
+        // The adapter's own driver key (it exists, so nothing is ever created there).
+        (
+            Snapshot::Registry {
+                hive,
+                key,
+                value,
+                missing_keys,
+                ..
+            },
+            Action::NetAdapter(a),
+        ) => {
+            *hive == Hive::LocalMachine
+                && engine::is_net_adapter_key(key)
+                && value.eq_ignore_ascii_case(&a.value)
+                && missing_keys.is_empty()
+        }
         (Snapshot::Service { name, .. }, Action::Service(a)) => name.eq_ignore_ascii_case(&a.name),
+        // Any existing plan may have been the active one before.
+        (Snapshot::PowerPlan { .. }, Action::PowerPlan(_)) => true,
+        (
+            Snapshot::PowerSetting {
+                subgroup, setting, ..
+            },
+            Action::PowerSetting(a),
+        ) => subgroup.eq_ignore_ascii_case(&a.subgroup) && setting.eq_ignore_ascii_case(&a.setting),
+        (Snapshot::Appx { package, .. }, Action::Appx(a)) => {
+            package.eq_ignore_ascii_case(&a.package)
+        }
         _ => false,
     }
 }
@@ -331,6 +363,14 @@ pub fn not_applicable(n: engine::NotApplicable) -> NotApplicableReason {
         engine::NotApplicable::Precondition { target, .. } => {
             NotApplicableReason::Precondition { target }
         }
+        engine::NotApplicable::PowerPlanMissing { .. } => NotApplicableReason::PowerPlanMissing,
+        engine::NotApplicable::PowerSettingMissing { .. } => {
+            NotApplicableReason::PowerSettingMissing
+        }
+        engine::NotApplicable::NoNetworkAdapter { .. } => NotApplicableReason::NoNetworkAdapter,
+        engine::NotApplicable::AppMissing { .. } => NotApplicableReason::AppMissing,
+        engine::NotApplicable::AppNotRestorable { .. } => NotApplicableReason::AppNotRestorable,
+        engine::NotApplicable::Cleanup => NotApplicableReason::Cleanup,
     }
 }
 

@@ -25,7 +25,16 @@ export type Restart = "none" | "explorer" | "signout" | "reboot";
 export type NotApplicableReason =
   | { code: "service_missing"; name: string }
   | { code: "platform"; detail: string }
-  | { code: "precondition"; target: string };
+  | { code: "precondition"; target: string }
+  | {
+      code:
+        | "power_plan_missing"
+        | "power_setting_missing"
+        | "no_network_adapter"
+        | "app_missing"
+        | "app_not_restorable"
+        | "cleanup";
+    };
 
 export type Status =
   | { code: "not_applied" | "applied" | "already_in_place" | "modified_outside" }
@@ -35,7 +44,10 @@ export type Status =
 export type StateView =
   | { kind: "missing" }
   | { kind: "value"; text: string }
-  | { kind: "service"; start: "boot" | "system" | "automatic" | "manual" | "disabled" };
+  | { kind: "service"; start: "boot" | "system" | "automatic" | "manual" | "disabled" }
+  | { kind: "plan"; guid: string }
+  | { kind: "power"; ac: number; dc: number }
+  | { kind: "app"; installed: boolean };
 
 export interface Change {
   target: string;
@@ -60,6 +72,8 @@ export interface Recipe {
   status: Status;
   changes: Change[];
   needsAdmin: boolean;
+  /** Deletes files: a "Clean" button with a confirmation, no switch, no undo. */
+  cleanup: boolean;
 }
 
 export type Outcome =

@@ -16,6 +16,7 @@ mod real {
     use std::time::Duration;
 
     use pco_core::backend::windows::{WindowsRegistry, WindowsServices};
+    use pco_core::backend::{WindowsAppx, WindowsPower};
     use pco_core::guard::{self, BlockedProcesses};
     use pco_core::journal::Journal;
     use pco_core::recipe;
@@ -243,10 +244,14 @@ mod real {
 
         let mut registry = WindowsRegistry::system();
         let mut services = WindowsServices::system();
+        let mut power = WindowsPower::system();
+        let mut apps = WindowsAppx::system();
         let mut restore_point = create_restore_point;
         let mut env = Env {
             registry: &mut registry,
             services: &mut services,
+            power: &mut power,
+            apps: &mut apps,
             journal: &mut journal,
             host,
             running,

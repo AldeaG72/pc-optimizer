@@ -63,12 +63,47 @@ pub fn state(t: &Texts, s: &Snapshot) -> String {
             };
             t.f("state.service", &[("start", &t.t(key))])
         }
+        Snapshot::PowerPlan { active } => {
+            t.f("state.power_plan", &[("plan", &plan_name(t, active))])
+        }
+        Snapshot::PowerSetting { values, .. } => t.f(
+            "state.power_setting",
+            &[("ac", &values.ac), ("dc", &values.dc)],
+        ),
+        Snapshot::Appx { installed, .. } => if *installed {
+            t.t("state.app_installed")
+        } else {
+            t.t("state.app_removed")
+        }
+        .to_owned(),
     }
+}
+
+/// Built-in plans by name; anything else by its GUID.
+pub fn plan_name(t: &Texts, guid: &str) -> String {
+    let key = match guid.to_ascii_lowercase().as_str() {
+        "381b4222-f694-41f0-9685-ff5bb260df2e" => "plan.balanced",
+        "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" => "plan.high",
+        "e9a42b02-d5df-448d-aa00-03f14749eb61" => "plan.ultimate",
+        "a1841308-3541-4fab-bc81-f71556f20b4a" => "plan.saver",
+        _ => return guid.to_owned(),
+    };
+    t.t(key).to_owned()
 }
 
 pub fn not_applicable(t: &Texts, n: &NotApplicable) -> String {
     match n {
         NotApplicable::ServiceMissing { name } => t.f("na.service_missing", &[("name", name)]),
+        NotApplicable::PowerPlanMissing { scheme } => {
+            t.f("na.power_plan_missing", &[("plan", &plan_name(t, scheme))])
+        }
+        NotApplicable::PowerSettingMissing { .. } => t.t("na.power_setting_missing").to_owned(),
+        NotApplicable::NoNetworkAdapter { value } => t.f("na.no_adapter", &[("value", value)]),
+        NotApplicable::AppMissing { package } => t.f("na.app_missing", &[("package", package)]),
+        NotApplicable::AppNotRestorable { package } => {
+            t.f("na.app_not_restorable", &[("package", package)])
+        }
+        NotApplicable::Cleanup => t.t("na.cleanup").to_owned(),
         NotApplicable::Precondition { target, expected } => t.f(
             "na.precondition",
             &[("target", target), ("expected", &value(t, expected))],

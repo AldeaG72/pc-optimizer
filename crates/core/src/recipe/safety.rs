@@ -73,6 +73,41 @@ const UPDATE_VALUES: &[&str] = &[
     "UseWUServer",
 ];
 
+/// Preinstalled packages that Windows itself, its security or the Store depend on, plus
+/// Edge (SPEC 4.2: Edge is only stopped in the background, never removed). Matched as a
+/// case-insensitive part of the package name.
+const PROTECTED_PACKAGES: &[(&str, &str)] = &[
+    ("SecHealthUI", "Windows Security"),
+    ("Windows.Apprep", "SmartScreen"),
+    ("WindowsStore", "Microsoft Store"),
+    ("StorePurchaseApp", "Microsoft Store"),
+    ("DesktopAppInstaller", "App Installer (winget)"),
+    ("VCLibs", "a shared app runtime"),
+    ("UI.Xaml", "a shared app runtime"),
+    ("NET.Native", "a shared app runtime"),
+    ("WindowsAppRuntime", "a shared app runtime"),
+    ("ShellExperienceHost", "the Windows shell"),
+    ("StartMenuExperienceHost", "the Start menu"),
+    ("CloudExperienceHost", "Windows sign-in and setup"),
+    ("AAD.BrokerPlugin", "Microsoft account sign-in"),
+    ("AccountsControl", "Microsoft account sign-in"),
+    ("LockApp", "the lock screen"),
+    ("MicrosoftEdge", "Microsoft Edge"),
+    ("Windows.Search", "Windows Search"),
+    ("XboxIdentityProvider", "Xbox sign-in used by games"),
+    ("XboxGamingOverlay", "Game Bar (turned off, not removed)"),
+    ("GamingApp", "the Xbox app used by Game Pass games"),
+];
+
+/// What a protected package is, if `package` is one.
+pub fn is_protected_package(package: &str) -> Option<&'static str> {
+    let lower = package.to_ascii_lowercase();
+    PROTECTED_PACKAGES
+        .iter()
+        .find(|(part, _)| lower.contains(&part.to_ascii_lowercase()))
+        .map(|(_, what)| *what)
+}
+
 /// Returns `Err((field, reason))` if the action touches a protected component.
 pub(crate) fn check(action: &Action) -> Result<(), (String, String)> {
     match action {
@@ -84,6 +119,17 @@ pub(crate) fn check(action: &Action) -> Result<(), (String, String)> {
             None => Ok(()),
         },
         Action::Registry(r) => check_registry(r),
+        Action::Appx(a) => match is_protected_package(&a.package) {
+            Some(what) => Err((
+                "package".into(),
+                format!("`{}` is {what}; it is never removed", a.package),
+            )),
+            None => Ok(()),
+        },
+        Action::PowerPlan(_)
+        | Action::PowerSetting(_)
+        | Action::NetAdapter(_)
+        | Action::Cleanup(_) => Ok(()),
     }
 }
 
@@ -206,6 +252,24 @@ mod tests {
         for (key, value) in blocked {
             assert!(check(&reg(key, value)).is_err(), "{key} / {value}");
         }
+    }
+
+    #[test]
+    fn blocks_protected_packages() {
+        for name in [
+            "Microsoft.SecHealthUI",
+            "Microsoft.WindowsStore",
+            "microsoft.desktopappinstaller",
+            "Microsoft.MicrosoftEdge.Stable",
+            "Microsoft.VCLibs.140.00",
+        ] {
+            let action = Action::Appx(crate::recipe::AppxAction {
+                package: name.into(),
+            });
+            assert!(check(&action).is_err(), "{name}");
+        }
+        assert!(is_protected_package("Clipchamp.Clipchamp").is_none());
+        assert!(is_protected_package("Microsoft.BingNews").is_none());
     }
 
     #[test]

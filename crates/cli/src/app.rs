@@ -4,7 +4,7 @@
 use std::io::Write;
 
 use anyhow::Result;
-use pco_core::backend::{RegistryBackend, ServiceBackend};
+use pco_core::backend::{AppxBackend, PowerBackend, RegistryBackend, ServiceBackend};
 use pco_core::engine::{ApplyOutcome, Engine, RecipePlan, RecipeStatus, UndoOutcome};
 use pco_core::guard::{
     check_admin, check_host, check_no_games, Blocked, BlockedProcesses, Host, SystemInfo,
@@ -21,6 +21,8 @@ use crate::i18n::Texts;
 pub struct Env<'a> {
     pub registry: &'a mut dyn RegistryBackend,
     pub services: &'a mut dyn ServiceBackend,
+    pub power: &'a mut dyn PowerBackend,
+    pub apps: &'a mut dyn AppxBackend,
     pub journal: &'a mut Journal,
     pub host: Host,
     /// Executable names of the running processes.
@@ -44,6 +46,8 @@ impl Env<'_> {
             &mut *self.journal,
             system,
         )
+        .with_power(&mut *self.power)
+        .with_apps(&mut *self.apps)
     }
 
     fn recipe(&self, id: &str) -> Option<&Recipe> {

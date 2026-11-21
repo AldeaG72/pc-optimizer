@@ -143,6 +143,8 @@ impl FromStr for SessionKind {
 pub enum EntryKind {
     Registry,
     Service,
+    Power,
+    Appx,
 }
 
 impl EntryKind {
@@ -150,6 +152,8 @@ impl EntryKind {
         match self {
             EntryKind::Registry => "registry",
             EntryKind::Service => "service",
+            EntryKind::Power => "power",
+            EntryKind::Appx => "appx",
         }
     }
 }
@@ -160,6 +164,8 @@ impl FromStr for EntryKind {
         Ok(match s {
             "registry" => EntryKind::Registry,
             "service" => EntryKind::Service,
+            "power" => EntryKind::Power,
+            "appx" => EntryKind::Appx,
             other => return Err(JournalError::Corrupt(other.into())),
         })
     }

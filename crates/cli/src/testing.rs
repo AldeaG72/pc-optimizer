@@ -77,6 +77,10 @@ impl<R: RegistryBackend> RegistryBackend for StopAfterChanges<R> {
     fn delete_key_if_empty(&mut self, hive: Hive, key: &str) -> Result<bool, BackendError> {
         self.inner.delete_key_if_empty(hive, key)
     }
+
+    fn subkeys(&self, hive: Hive, key: &str) -> Result<Vec<String>, BackendError> {
+        self.inner.subkeys(hive, key)
+    }
 }
 
 #[cfg(test)]

@@ -4,7 +4,8 @@
   import Search from "@lucide/svelte/icons/search";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import X from "@lucide/svelte/icons/x";
-  import type { Category, Recipe, StateView } from "../lib/backend";
+  import type { Category, Recipe } from "../lib/backend";
+  import { naText, stateText } from "../lib/describe";
   import { prefs, t, ui } from "../lib/state.svelte";
   import {
     catalog,
@@ -79,20 +80,9 @@
     return null;
   }
 
-  function stateText(s: StateView): string {
-    if (s.kind === "missing") return t("app.detail.missing");
-    if (s.kind === "value") return s.text;
-    return t(`app.service.${s.start}`);
-  }
-
   function statusNote(r: Recipe): string | null {
     const s = r.status;
-    if (s.code === "not_applicable") {
-      const reason = s.reason;
-      if (reason.code === "service_missing") return t("app.na.service_missing", { name: reason.name });
-      if (reason.code === "precondition") return t("app.na.precondition", { target: reason.target });
-      return t("app.na.platform");
-    }
+    if (s.code === "not_applicable") return naText(s.reason);
     if (s.code === "error") return t("app.status.error", { message: s.message });
     if (s.code === "already_in_place") return t("app.detail.in_place");
     return null;

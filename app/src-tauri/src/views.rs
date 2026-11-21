@@ -1,7 +1,9 @@
 //! What the interface shows, built from the engine without changing anything: every recipe
 //! with its texts, its state on this PC and the exact changes it would make.
 
-use pco_core::backend::{RegData, RegRead, RegistryBackend, ServiceBackend, ServiceStart};
+use pco_core::backend::{
+    AppxBackend, PowerBackend, RegData, RegRead, RegistryBackend, ServiceBackend, ServiceStart,
+};
 use pco_core::engine::{Engine, RecipePlan, RecipeStatus, Snapshot};
 use pco_core::guard::SystemInfo;
 use pco_core::journal::Journal;
@@ -34,8 +36,10 @@ pub struct RecipeView {
     pub verified: bool,
     pub status: StatusView,
     pub changes: Vec<ChangeView>,
-    /// Applying it shows the UAC prompt (HKLM or a service).
+    /// Applying it shows the UAC prompt (HKLM, a service, power, apps).
     pub needs_admin: bool,
+    /// Deletes files: a separate button with a confirmation, no switch and no undo.
+    pub cleanup: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -67,8 +71,24 @@ pub struct ChangeView {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum StateView {
     Missing,
-    Value { text: String },
-    Service { start: ServiceStart },
+    Value {
+        text: String,
+    },
+    Service {
+        start: ServiceStart,
+    },
+    /// The active power plan (GUID; the interface names the built-in ones).
+    Plan {
+        guid: String,
+    },
+    /// A power setting: plugged in / on battery.
+    Power {
+        ac: u32,
+        dc: u32,
+    },
+    App {
+        installed: bool,
+    },
 }
 
 fn reg_text(data: &RegData) -> String {
@@ -89,6 +109,16 @@ fn state_view(s: &Snapshot) -> StateView {
             },
         },
         Snapshot::Service { state, .. } => StateView::Service { start: state.start },
+        Snapshot::PowerPlan { active } => StateView::Plan {
+            guid: active.clone(),
+        },
+        Snapshot::PowerSetting { values, .. } => StateView::Power {
+            ac: values.ac,
+            dc: values.dc,
+        },
+        Snapshot::Appx { installed, .. } => StateView::App {
+            installed: *installed,
+        },
     }
 }
 
@@ -105,15 +135,20 @@ fn status_view(plan: &RecipePlan) -> StatusView {
 }
 
 /// Every recipe as the interface shows it. Only reads: give it read-only backends.
+#[allow(clippy::too_many_arguments)] // one per kind of backend
 pub fn recipe_views(
     recipes: &[Recipe],
     lang: Lang,
     registry: &mut dyn RegistryBackend,
     services: &mut dyn ServiceBackend,
+    power: &mut dyn PowerBackend,
+    apps: &mut dyn AppxBackend,
     journal: &mut Journal,
     system: SystemInfo,
 ) -> Vec<RecipeView> {
-    let engine = Engine::new(registry, services, journal, system);
+    let engine = Engine::new(registry, services, journal, system)
+        .with_power(power)
+        .with_apps(apps);
     recipes
         .iter()
         .map(|r| {
@@ -153,6 +188,7 @@ pub fn recipe_views(
                 status,
                 changes,
                 needs_admin: r.needs_admin(),
+                cleanup: r.is_cleanup(),
             }
         })
         .collect()
@@ -237,7 +273,7 @@ mod tests {
     #![allow(clippy::unwrap_used)]
 
     use super::*;
-    use pco_core::backend::memory::{MemoryRegistry, MemoryServices};
+    use pco_core::backend::memory::{MemoryAppx, MemoryPower, MemoryRegistry, MemoryServices};
     use pco_core::backend::{ReadOnlyRegistry, ServiceState};
     use pco_core::recipe::{self, Edition, Hive};
 
@@ -256,7 +292,18 @@ mod tests {
     fn views(reg: MemoryRegistry, svc: MemoryServices, journal: &mut Journal) -> Vec<RecipeView> {
         let mut reg = ReadOnlyRegistry(reg);
         let mut svc = svc;
-        recipe_views(&recipes(), Lang::Ro, &mut reg, &mut svc, journal, system())
+        let mut power = MemoryPower::new("381b4222-f694-41f0-9685-ff5bb260df2e");
+        let mut apps = MemoryAppx::new();
+        recipe_views(
+            &recipes(),
+            Lang::Ro,
+            &mut reg,
+            &mut svc,
+            &mut power,
+            &mut apps,
+            journal,
+            system(),
+        )
     }
 
     fn find<'a>(views: &'a [RecipeView], id: &str) -> &'a RecipeView {
@@ -340,11 +387,15 @@ mod tests {
         let mut journal = Journal::open_in_memory().unwrap();
         let mut reg = ReadOnlyRegistry(WindowsRegistry::system());
         let mut svc = WindowsServices::read_only();
+        let mut power = pco_core::backend::WindowsPower::read_only();
+        let mut apps = pco_core::backend::WindowsAppx::read_only();
         let v = recipe_views(
             &recipes(),
             Lang::En,
             &mut reg,
             &mut svc,
+            &mut power,
+            &mut apps,
             &mut journal,
             system(),
         );

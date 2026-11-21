@@ -13,10 +13,10 @@
     type BlockReason,
     type HelperEvent,
     type HelperRequest,
-    type NotApplicableReason,
     type Outcome,
     type Restart,
   } from "../lib/backend";
+  import { naText } from "../lib/describe";
   import { prefs, t, ui } from "../lib/state.svelte";
   import { byId, clearPending, loadCatalog, pending } from "../lib/tweaks.svelte";
 
@@ -32,12 +32,6 @@
   const rank: Record<Restart, number> = { none: 0, explorer: 1, signout: 2, reboot: 3 };
   const done = $derived(lines.filter((l) => l.state !== "waiting" && l.state !== "working").length);
   const ok = $derived(lines.filter((l) => l.state === "ok").length);
-
-  function naText(r: NotApplicableReason): string {
-    if (r.code === "service_missing") return t("app.na.service_missing", { name: r.name });
-    if (r.code === "precondition") return t("app.na.precondition", { target: r.target });
-    return t("app.na.platform");
-  }
 
   function outcomeLine(o: Outcome): Pick<Line, "state" | "note"> {
     switch (o.code) {

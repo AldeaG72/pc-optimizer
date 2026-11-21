@@ -80,6 +80,8 @@ jobs:
     env:
       PCO_CI_REAL_TWEAKS: "1"
       PCO_CI_TEST_SERVICE: PcoCiTestSvc
+      # Provisioned on the runner (Windows keeps a copy): removed and reinstalled by the test.
+      PCO_CI_TEST_APP: Microsoft.WindowsFeedbackHub
     steps:
       - uses: actions/checkout@v5
       - run: rustup toolchain install stable --profile minimal
@@ -89,19 +91,6 @@ jobs:
         run: |
           sc.exe create PcoCiTestSvc binPath= "C:\Windows\System32\svchost.exe -k PcoCiTestSvc" start= demand
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Runner inventory (apps, adapters, power plans)
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          # As annotations: readable on the run page without signing in.
-          function Note($title, $lines) { $text = (@($lines) -join '%0A'); Write-Output "::notice title=$title::$text" }
-          Note 'Provisioned apps' (Get-AppxProvisionedPackage -Online | ForEach-Object { "$($_.DisplayName) | $($_.PublisherId)" })
-          Note 'User apps' (Get-AppxPackage | ForEach-Object { $_.Name })
-          $class = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}'
-          Note 'Network adapters' (Get-ChildItem $class -ErrorAction SilentlyContinue | ForEach-Object { $p = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue; "$($_.PSChildName) | $($p.DriverDesc) | Characteristics=$($p.Characteristics) | PnP=$($p.PnPCapabilities) | EEE=$($p.'*EEE')" })
-          Note 'Adapter advanced properties' (Get-NetAdapter -Physical | Get-NetAdapterAdvancedProperty -AllProperties | ForEach-Object { "$($_.Name) | $($_.RegistryKeyword) = $($_.RegistryValue)" })
-          Note 'Power plans' (powercfg /list)
 
       - name: Apply and undo every recipe for real
         run: cargo test -p pco-core --test real_recipes -- --ignored --test-threads=1 --nocapture

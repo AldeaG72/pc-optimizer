@@ -7,8 +7,9 @@ use serde_yaml_ng::Value;
 
 use super::error::RecipeError;
 use super::model::{
-    Action, I18n, RawAction, RawRecipe, RawRegistryAction, Recipe, RegKind, RegValue,
-    RegistryAction, RegistryOp, ServiceAction,
+    Action, AppxAction, I18n, NetAdapterAction, PowerPlanAction, PowerSettingAction, RawAction,
+    RawRecipe, RawRegistryAction, Recipe, RegKind, RegValue, RegistryAction, RegistryOp,
+    ServiceAction,
 };
 use super::safety;
 
@@ -78,6 +79,7 @@ pub(crate) fn validate(raw: RawRecipe, path: &Path) -> Result<Recipe, RecipeErro
             "at least one action is required".into(),
         )));
     }
+    check_cleanup(&raw).map_err(invalid)?;
     let actions = raw
         .actions
         .into_iter()
@@ -170,10 +172,110 @@ fn check_url(source: &str) -> Result<(), String> {
 }
 
 fn convert_action(i: usize, raw: RawAction) -> Result<Action, Problem> {
+    let field = |name: &str| format!("actions[{i}].{name}");
     match raw {
         RawAction::Registry(r) => convert_registry(i, r).map(Action::Registry),
         RawAction::Service(s) => check_service(i, &s).map(|()| Action::Service(s)),
+        RawAction::PowerPlan(p) => Ok(Action::PowerPlan(PowerPlanAction {
+            scheme: guid(&p.scheme).map_err(|m| (field("scheme"), m))?,
+        })),
+        RawAction::PowerSetting(p) => {
+            if p.ac.is_none() && p.dc.is_none() {
+                return Err((
+                    field("ac"),
+                    "a power setting needs `ac`, `dc` or both".into(),
+                ));
+            }
+            Ok(Action::PowerSetting(PowerSettingAction {
+                subgroup: guid(&p.subgroup).map_err(|m| (field("subgroup"), m))?,
+                setting: guid(&p.setting).map_err(|m| (field("setting"), m))?,
+                ac: p.ac,
+                dc: p.dc,
+            }))
+        }
+        RawAction::NetAdapter(n) => {
+            if n.value.trim().is_empty() || n.value.trim() != n.value || n.value.contains('\\') {
+                return Err((
+                    field("value"),
+                    "value name must not be empty, start/end with spaces or contain `\\`".into(),
+                ));
+            }
+            Ok(Action::NetAdapter(NetAdapterAction {
+                set: convert_value(n.kind, n.set).map_err(|m| (field("set"), m))?,
+                value: n.value,
+                advertised: n.advertised.unwrap_or(true),
+            }))
+        }
+        RawAction::Appx(a) => {
+            check_package(&a.package).map_err(|m| (field("package"), m))?;
+            Ok(Action::Appx(AppxAction { package: a.package }))
+        }
+        RawAction::Cleanup(c) => Ok(Action::Cleanup(c)),
     }
+}
+
+/// A GUID as `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` (braces allowed), stored lowercase.
+pub(crate) fn guid(text: &str) -> Result<String, String> {
+    let bare = text.trim_start_matches('{').trim_end_matches('}');
+    let groups: Vec<&str> = bare.split('-').collect();
+    let shape_ok = groups.len() == 5
+        && groups
+            .iter()
+            .zip([8, 4, 4, 4, 12])
+            .all(|(g, n)| g.len() == n && g.bytes().all(|b| b.is_ascii_hexdigit()));
+    if shape_ok {
+        Ok(bare.to_ascii_lowercase())
+    } else {
+        Err(format!(
+            "`{text}` is not a GUID like 381b4222-f694-41f0-9685-ff5bb260df2e"
+        ))
+    }
+}
+
+/// Package names go into a PowerShell command, so only the characters Windows allows in
+/// them: letters, digits, `.` and `-`.
+pub(crate) fn check_package(name: &str) -> Result<(), String> {
+    let ok = (3..=100).contains(&name.len())
+        && name
+            .bytes()
+            .next()
+            .is_some_and(|b| b.is_ascii_alphanumeric())
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-');
+    if ok {
+        Ok(())
+    } else {
+        Err(format!(
+            "`{name}` is not a package name like Clipchamp.Clipchamp"
+        ))
+    }
+}
+
+/// Cleanup deletes files and has no undo: it cannot share a recipe with undoable actions,
+/// and is never ticked by a "Recommended" button.
+fn check_cleanup(raw: &RawRecipe) -> Result<(), Problem> {
+    let cleanups = raw
+        .actions
+        .iter()
+        .filter(|a| matches!(a, RawAction::Cleanup(_)))
+        .count();
+    if cleanups == 0 {
+        return Ok(());
+    }
+    if cleanups != raw.actions.len() {
+        return Err((
+            "actions".into(),
+            "cleanup actions cannot be mixed with other actions (they cannot be undone)".into(),
+        ));
+    }
+    if !raw.profiles.is_empty() {
+        return Err((
+            "profiles".into(),
+            "a cleanup cannot be in a profile: it always asks first".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn convert_registry(i: usize, r: RawRegistryAction) -> Result<RegistryAction, Problem> {
@@ -349,6 +451,27 @@ mod tests {
             r"hklm\Software",
         ] {
             assert!(check_key(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn guids_and_packages() {
+        assert_eq!(
+            guid("{8C5E7FDA-E8BF-4A96-9A85-A6E23A8C635C}").as_deref(),
+            Ok("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c")
+        );
+        for bad in [
+            "",
+            "high-performance",
+            "8c5e7fda-e8bf-4a96-9a85",
+            "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635z",
+        ] {
+            assert!(guid(bad).is_err(), "{bad}");
+        }
+        assert!(check_package("Clipchamp.Clipchamp").is_ok());
+        assert!(check_package("Microsoft.BingNews").is_ok());
+        for bad in ["", "ab", "a b", "x;Remove-Item", "-x.y", "a'b", "a$b"] {
+            assert!(check_package(bad).is_err(), "{bad}");
         }
     }
 

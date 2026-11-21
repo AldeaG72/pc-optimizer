@@ -5,7 +5,8 @@
 use std::collections::{HashMap, HashSet};
 
 use super::{
-    reg_target, BackendError, RegData, RegRead, RegistryBackend, ServiceBackend, ServiceState,
+    reg_target, AppxBackend, AppxState, BackendError, PowerBackend, PowerValues, RegData, RegRead,
+    RegistryBackend, ServiceBackend, ServiceState,
 };
 use crate::recipe::Hive;
 
@@ -137,6 +138,21 @@ impl RegistryBackend for MemoryRegistry {
         self.keys.remove(&(hive, lower));
         Ok(true)
     }
+
+    fn subkeys(&self, hive: Hive, key: &str) -> Result<Vec<String>, BackendError> {
+        let prefix = format!("{}\\", key.to_lowercase());
+        let mut names: Vec<String> = self
+            .keys
+            .keys()
+            .filter(|(h, k)| *h == hive && k.starts_with(&prefix))
+            .filter_map(|(_, k)| {
+                let rest = &k[prefix.len()..];
+                (!rest.contains('\\')).then(|| rest.to_owned())
+            })
+            .collect();
+        names.sort();
+        Ok(names)
+    }
 }
 
 /// Simulated services.
@@ -182,6 +198,188 @@ impl ServiceBackend for MemoryServices {
                 Ok(())
             }
             None => Err(BackendError::ServiceNotFound { name: name.into() }),
+        }
+    }
+}
+
+type SettingId = (String, String, String);
+
+fn setting_id(scheme: &str, subgroup: &str, setting: &str) -> SettingId {
+    (
+        scheme.to_lowercase(),
+        subgroup.to_lowercase(),
+        setting.to_lowercase(),
+    )
+}
+
+/// Simulated power plans.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MemoryPower {
+    active: String,
+    schemes: HashSet<String>,
+    settings: HashMap<SettingId, PowerValues>,
+    fail: bool,
+}
+
+impl MemoryPower {
+    /// One plan, active.
+    pub fn new(active: &str) -> Self {
+        Self {
+            active: active.to_lowercase(),
+            schemes: HashSet::from([active.to_lowercase()]),
+            ..Self::default()
+        }
+    }
+
+    pub fn with_scheme(mut self, scheme: &str) -> Self {
+        self.schemes.insert(scheme.to_lowercase());
+        self
+    }
+
+    pub fn with_setting(
+        mut self,
+        scheme: &str,
+        subgroup: &str,
+        setting: &str,
+        values: PowerValues,
+    ) -> Self {
+        self.settings
+            .insert(setting_id(scheme, subgroup, setting), values);
+        self
+    }
+
+    /// Makes every later change fail.
+    pub fn fail_writes(&mut self) {
+        self.fail = true;
+    }
+
+    pub fn same_contents(&self, other: &Self) -> bool {
+        self.active == other.active
+            && self.schemes == other.schemes
+            && self.settings == other.settings
+    }
+
+    fn check(&self, target: &str) -> Result<(), BackendError> {
+        if self.fail {
+            Err(BackendError::Injected {
+                target: target.into(),
+            })
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl PowerBackend for MemoryPower {
+    fn active_scheme(&self) -> Result<String, BackendError> {
+        Ok(self.active.clone())
+    }
+
+    fn scheme_exists(&self, scheme: &str) -> Result<bool, BackendError> {
+        Ok(self.schemes.contains(&scheme.to_lowercase()))
+    }
+
+    fn set_active_scheme(&mut self, scheme: &str) -> Result<(), BackendError> {
+        self.check("power plan")?;
+        if !self.schemes.contains(&scheme.to_lowercase()) {
+            return Err(BackendError::NotFound {
+                target: format!("power plan {scheme}"),
+            });
+        }
+        self.active = scheme.to_lowercase();
+        Ok(())
+    }
+
+    fn read_setting(
+        &self,
+        scheme: &str,
+        subgroup: &str,
+        setting: &str,
+    ) -> Result<Option<PowerValues>, BackendError> {
+        Ok(self
+            .settings
+            .get(&setting_id(scheme, subgroup, setting))
+            .copied())
+    }
+
+    fn write_setting(
+        &mut self,
+        scheme: &str,
+        subgroup: &str,
+        setting: &str,
+        values: PowerValues,
+    ) -> Result<(), BackendError> {
+        self.check(&format!("power setting {setting}"))?;
+        match self
+            .settings
+            .get_mut(&setting_id(scheme, subgroup, setting))
+        {
+            Some(v) => {
+                *v = values;
+                Ok(())
+            }
+            None => Err(BackendError::NotFound {
+                target: format!("power setting {setting}"),
+            }),
+        }
+    }
+}
+
+/// Simulated preinstalled apps.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MemoryAppx {
+    apps: HashMap<String, AppxState>,
+    fail_on: HashSet<String>,
+}
+
+impl MemoryAppx {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_app(mut self, package: &str, state: AppxState) -> Self {
+        self.apps.insert(package.to_lowercase(), state);
+        self
+    }
+
+    pub fn fail_on(&mut self, package: &str) {
+        self.fail_on.insert(package.to_lowercase());
+    }
+
+    pub fn same_contents(&self, other: &Self) -> bool {
+        self.apps == other.apps
+    }
+}
+
+impl AppxBackend for MemoryAppx {
+    fn query(&self, package: &str) -> Result<AppxState, BackendError> {
+        Ok(self
+            .apps
+            .get(&package.to_lowercase())
+            .copied()
+            .unwrap_or(AppxState::Missing))
+    }
+
+    fn set_installed(&mut self, package: &str, installed: bool) -> Result<(), BackendError> {
+        let key = package.to_lowercase();
+        if self.fail_on.contains(&key) {
+            return Err(BackendError::Injected {
+                target: format!("app {package}"),
+            });
+        }
+        match self.apps.get(&key) {
+            Some(AppxState::Installed | AppxState::Removed) => {
+                let state = if installed {
+                    AppxState::Installed
+                } else {
+                    AppxState::Removed
+                };
+                self.apps.insert(key, state);
+                Ok(())
+            }
+            _ => Err(BackendError::NotFound {
+                target: format!("app {package}"),
+            }),
         }
     }
 }

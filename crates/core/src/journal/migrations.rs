@@ -50,4 +50,34 @@ pub(crate) const MIGRATIONS: &[&str] = &[
 
     CREATE INDEX benchmarks_by_target ON benchmarks (target, label, series);
     "#,
+    // 3 — Stage 3 Part C: power plans and preinstalled apps as entry kinds, and one action
+    // may now touch several targets (one value per network adapter). SQLite cannot change a
+    // CHECK or UNIQUE constraint in place, so the table is rebuilt with the same columns.
+    r#"
+    CREATE TABLE entries_v3 (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id     INTEGER NOT NULL REFERENCES sessions(id),
+        recipe_id      TEXT    NOT NULL,
+        recipe_version INTEGER NOT NULL,
+        action_index   INTEGER NOT NULL,
+        kind           TEXT    NOT NULL CHECK (kind IN ('registry', 'service', 'power', 'appx')),
+        target         TEXT    NOT NULL,
+        previous_state TEXT    NOT NULL CHECK (json_valid(previous_state)),
+        new_state      TEXT    NOT NULL CHECK (json_valid(new_state)),
+        status         TEXT    NOT NULL CHECK (status IN ('pending', 'applied', 'rolled_back', 'failed')),
+        error          TEXT,
+        updated_at     INTEGER NOT NULL,
+        UNIQUE (session_id, recipe_id, action_index, target)
+    );
+
+    INSERT INTO entries_v3 (id, session_id, recipe_id, recipe_version, action_index, kind,
+                            target, previous_state, new_state, status, error, updated_at)
+    SELECT id, session_id, recipe_id, recipe_version, action_index, kind,
+           target, previous_state, new_state, status, error, updated_at
+    FROM entries;
+
+    DROP TABLE entries;
+    ALTER TABLE entries_v3 RENAME TO entries;
+    CREATE INDEX entries_by_recipe ON entries (recipe_id, status);
+    "#,
 ];

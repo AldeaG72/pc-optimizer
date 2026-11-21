@@ -141,6 +141,14 @@ pub enum NotApplicableReason {
     Precondition {
         target: String,
     },
+    PowerPlanMissing,
+    PowerSettingMissing,
+    NoNetworkAdapter,
+    AppMissing,
+    /// Windows keeps no copy of the app, so it is left installed.
+    AppNotRestorable,
+    /// Cleanups run on their own, after a confirmation.
+    Cleanup,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

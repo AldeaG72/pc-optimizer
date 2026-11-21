@@ -4,16 +4,17 @@
 //! CLAUDE.md safety rule 1 forbids real tweaks on the development PC, and these
 //! constructors make that a hard error instead of a convention.
 
-use windows::core::{Error as WinError, HSTRING, PCWSTR};
+use windows::core::{Error as WinError, HSTRING, PCWSTR, PWSTR};
 use windows::Win32::Foundation::{
     ERROR_ACCESS_DENIED, ERROR_FILE_NOT_FOUND, ERROR_INSUFFICIENT_BUFFER, ERROR_MORE_DATA,
-    ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SUCCESS, WIN32_ERROR,
+    ERROR_NO_MORE_ITEMS, ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SUCCESS, WIN32_ERROR,
 };
 use windows::Win32::System::Registry::{
-    RegCloseKey, RegCreateKeyExW, RegDeleteKeyExW, RegDeleteValueW, RegOpenKeyExW,
+    RegCloseKey, RegCreateKeyExW, RegDeleteKeyExW, RegDeleteValueW, RegEnumKeyExW, RegOpenKeyExW,
     RegQueryInfoKeyW, RegQueryValueExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER,
-    HKEY_LOCAL_MACHINE, KEY_QUERY_VALUE, KEY_SET_VALUE, KEY_WOW64_64KEY, REG_CREATED_NEW_KEY,
-    REG_CREATE_KEY_DISPOSITION, REG_OPTION_NON_VOLATILE, REG_SAM_FLAGS, REG_VALUE_TYPE,
+    HKEY_LOCAL_MACHINE, KEY_ENUMERATE_SUB_KEYS, KEY_QUERY_VALUE, KEY_SET_VALUE, KEY_WOW64_64KEY,
+    REG_CREATED_NEW_KEY, REG_CREATE_KEY_DISPOSITION, REG_OPTION_NON_VOLATILE, REG_SAM_FLAGS,
+    REG_VALUE_TYPE,
 };
 use windows::Win32::System::Services::{
     ChangeServiceConfig2W, ChangeServiceConfigW, CloseServiceHandle, OpenSCManagerW, OpenServiceW,
@@ -307,6 +308,39 @@ impl RegistryBackend for WindowsRegistry {
             ERROR_FILE_NOT_FOUND => Ok(false),
             rc => Err(os_error("delete key", reg_target(hive, key, ""), rc)),
         }
+    }
+
+    fn subkeys(&self, hive: Hive, key: &str) -> Result<Vec<String>, BackendError> {
+        let Some(k) = open_key(hive, key, KEY_ENUMERATE_SUB_KEYS)? else {
+            return Ok(Vec::new());
+        };
+        let mut names = Vec::new();
+        for index in 0u32.. {
+            // Key names are at most 255 characters.
+            let mut buf = [0u16; 256];
+            let mut len = buf.len() as u32;
+            // SAFETY: `buf` has `len` writable UTF-16 units; the optional outputs are unused.
+            let rc = unsafe {
+                RegEnumKeyExW(
+                    k.0,
+                    index,
+                    Some(PWSTR(buf.as_mut_ptr())),
+                    &mut len,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+            };
+            match rc {
+                ERROR_SUCCESS => {
+                    names.push(String::from_utf16_lossy(&buf[..len as usize]));
+                }
+                ERROR_NO_MORE_ITEMS => break,
+                rc => return Err(os_error("list subkeys", reg_target(hive, key, ""), rc)),
+            }
+        }
+        Ok(names)
     }
 }
 

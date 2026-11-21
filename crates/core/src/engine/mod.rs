@@ -18,11 +18,31 @@ use std::fmt;
 pub use snapshot::Snapshot;
 
 use crate::backend::{
-    BackendError, RegData, RegRead, RegistryBackend, ServiceBackend, ServiceStart, ServiceState,
+    AppxBackend, AppxState, BackendError, PowerBackend, PowerValues, RegData, RegRead,
+    RegistryBackend, ServiceBackend, ServiceStart, ServiceState,
 };
 use crate::guard::{platform_mismatch, PlatformMismatch, SystemInfo};
 use crate::journal::{EntryId, Journal, JournalError, NewEntry, SessionId, SessionKind, Status};
-use crate::recipe::{Action, Hive, Recipe, RegValue, RegistryAction, RegistryOp, ServiceStartup};
+use crate::recipe::{
+    Action, Hive, NetAdapterAction, Recipe, RegValue, RegistryAction, RegistryOp, ServiceStartup,
+};
+
+/// Driver keys of network adapters (the network device class), one numbered subkey each.
+pub const NET_ADAPTER_CLASS: &str =
+    r"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}";
+
+/// `Characteristics` bit of a physical adapter (not virtual, not software).
+pub const NCF_PHYSICAL: u32 = 0x4;
+
+/// True if `key` is one adapter's driver key: `NET_ADAPTER_CLASS\0001`.
+pub fn is_net_adapter_key(key: &str) -> bool {
+    let Some((parent, child)) = key.rsplit_once('\\') else {
+        return false;
+    };
+    parent.eq_ignore_ascii_case(NET_ADAPTER_CLASS)
+        && child.len() == 4
+        && child.bytes().all(|b| b.is_ascii_digit())
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
@@ -82,6 +102,28 @@ pub enum NotApplicable {
         target: String,
         expected: RegValue,
     },
+    /// The power plan the recipe switches to does not exist on this PC.
+    PowerPlanMissing {
+        scheme: String,
+    },
+    /// The active plan has no such setting on this PC.
+    PowerSettingMissing {
+        setting: String,
+    },
+    /// No physical network adapter offers this setting.
+    NoNetworkAdapter {
+        value: String,
+    },
+    /// The app is not on this PC.
+    AppMissing {
+        package: String,
+    },
+    /// Windows keeps no copy of the app, so removing it could not be undone offline.
+    AppNotRestorable {
+        package: String,
+    },
+    /// A cleanup deletes files: it runs on its own, never through apply/undo.
+    Cleanup,
 }
 
 /// Where a recipe stands on this PC.
@@ -173,6 +215,9 @@ pub struct Engine<'a> {
     services: &'a mut dyn ServiceBackend,
     journal: &'a mut Journal,
     system: SystemInfo,
+    /// Optional: without them, recipes of that kind fail with a clear error.
+    power: Option<&'a mut dyn PowerBackend>,
+    apps: Option<&'a mut dyn AppxBackend>,
 }
 
 impl<'a> Engine<'a> {
@@ -188,6 +233,56 @@ impl<'a> Engine<'a> {
             services,
             journal,
             system,
+            power: None,
+            apps: None,
+        }
+    }
+
+    /// Power plans and settings.
+    pub fn with_power(mut self, power: &'a mut dyn PowerBackend) -> Self {
+        self.power = Some(power);
+        self
+    }
+
+    /// Preinstalled apps.
+    pub fn with_apps(mut self, apps: &'a mut dyn AppxBackend) -> Self {
+        self.apps = Some(apps);
+        self
+    }
+
+    fn power(&self) -> Result<&dyn PowerBackend, BackendError> {
+        match self.power.as_deref() {
+            Some(p) => Ok(p),
+            None => Err(BackendError::Unsupported {
+                what: "power plans".into(),
+            }),
+        }
+    }
+
+    fn power_mut(&mut self) -> Result<&mut dyn PowerBackend, BackendError> {
+        match self.power.as_deref_mut() {
+            Some(p) => Ok(p),
+            None => Err(BackendError::Unsupported {
+                what: "power plans".into(),
+            }),
+        }
+    }
+
+    fn apps(&self) -> Result<&dyn AppxBackend, BackendError> {
+        match self.apps.as_deref() {
+            Some(a) => Ok(a),
+            None => Err(BackendError::Unsupported {
+                what: "preinstalled apps".into(),
+            }),
+        }
+    }
+
+    fn apps_mut(&mut self) -> Result<&mut dyn AppxBackend, BackendError> {
+        match self.apps.as_deref_mut() {
+            Some(a) => Ok(a),
+            None => Err(BackendError::Unsupported {
+                what: "preinstalled apps".into(),
+            }),
         }
     }
 
@@ -226,35 +321,33 @@ impl<'a> Engine<'a> {
                 actions: Vec::new(),
             });
         }
+        let not_applicable = |reason| RecipePlan {
+            recipe_id: recipe.id.clone(),
+            status: RecipeStatus::NotApplicable(reason),
+            actions: Vec::new(),
+        };
         let mut actions = Vec::new();
         for (index, action) in recipe.actions.iter().enumerate() {
-            let current = match self.capture(action)? {
+            let currents = match self.capture(action)? {
                 Captured::Found(s) => s,
-                Captured::NotApplicable(reason) => {
-                    return Ok(RecipePlan {
-                        recipe_id: recipe.id.clone(),
-                        status: RecipeStatus::NotApplicable(reason),
-                        actions: Vec::new(),
-                    })
-                }
+                Captured::NotApplicable(reason) => return Ok(not_applicable(reason)),
             };
-            let desired = desired_state(action, &current);
-            let in_place = desired.is_satisfied_by(&current);
-            if !in_place {
-                if let Some(unmet) = unmet_precondition(action, &current) {
-                    return Ok(RecipePlan {
-                        recipe_id: recipe.id.clone(),
-                        status: RecipeStatus::NotApplicable(unmet),
-                        actions: Vec::new(),
-                    });
+            // Usually one target; one per adapter for network adapter settings.
+            for current in currents {
+                let desired = desired_state(action, &current);
+                let in_place = desired.is_satisfied_by(&current);
+                if !in_place {
+                    if let Some(unmet) = unmet_precondition(action, &current) {
+                        return Ok(not_applicable(unmet));
+                    }
                 }
+                actions.push(ActionPlan {
+                    index,
+                    current,
+                    desired,
+                    in_place,
+                });
             }
-            actions.push(ActionPlan {
-                index,
-                current,
-                desired,
-                in_place,
-            });
         }
 
         let all_in_place = actions.iter().all(|a| a.in_place);
@@ -396,12 +489,12 @@ impl<'a> Engine<'a> {
         for (index, action) in recipe.actions.iter().enumerate() {
             // Capture again right before writing: the plan may be stale, and two actions may
             // touch the same target.
-            let mut current = match self.capture(action) {
+            let currents = match self.capture(action) {
                 Ok(Captured::Found(s)) => s,
                 Ok(Captured::NotApplicable(_)) => {
                     let rolled_back = self.roll_back(&done)?;
                     return Ok(ApplyOutcome::Failed {
-                        error: "a service disappeared while applying".into(),
+                        error: "a target disappeared while applying".into(),
                         rolled_back,
                     });
                 }
@@ -413,47 +506,49 @@ impl<'a> Engine<'a> {
                     });
                 }
             };
-            let desired = desired_state(action, &current);
-            if desired.is_satisfied_by(&current) {
-                continue;
-            }
-            if unmet_precondition(action, &current).is_some() {
-                // The value changed between the plan and now: leave it alone.
-                let rolled_back = self.roll_back(&done)?;
-                return Ok(ApplyOutcome::Failed {
-                    error: format!("{} changed while applying", current.target()),
-                    rolled_back,
-                });
-            }
-            self.inherit_created_keys(&mut current)?;
-
-            let entry = self.journal.record_pending(
-                sid,
-                &NewEntry {
-                    recipe_id: &recipe.id,
-                    recipe_version: recipe.version,
-                    action_index: index,
-                    kind: current.kind(),
-                    target: &current.target(),
-                    previous_state: &current,
-                    new_state: &desired,
-                },
-            )?;
-
-            match self.restore(&desired) {
-                Ok(()) => {
-                    self.journal
-                        .set_entry_status(entry, Status::Applied, None)?;
-                    done.push((entry, current));
+            for mut current in currents {
+                let desired = desired_state(action, &current);
+                if desired.is_satisfied_by(&current) {
+                    continue;
                 }
-                Err(e) => {
-                    let error = e.to_string();
-                    let this_restored = self.undo_failed_action(entry, &current, &error)?;
-                    let others_restored = self.roll_back(&done)?;
+                if unmet_precondition(action, &current).is_some() {
+                    // The value changed between the plan and now: leave it alone.
+                    let rolled_back = self.roll_back(&done)?;
                     return Ok(ApplyOutcome::Failed {
-                        error,
-                        rolled_back: this_restored && others_restored,
+                        error: format!("{} changed while applying", current.target()),
+                        rolled_back,
                     });
+                }
+                self.inherit_created_keys(&mut current)?;
+
+                let entry = self.journal.record_pending(
+                    sid,
+                    &NewEntry {
+                        recipe_id: &recipe.id,
+                        recipe_version: recipe.version,
+                        action_index: index,
+                        kind: current.kind(),
+                        target: &current.target(),
+                        previous_state: &current,
+                        new_state: &desired,
+                    },
+                )?;
+
+                match self.restore(&desired) {
+                    Ok(()) => {
+                        self.journal
+                            .set_entry_status(entry, Status::Applied, None)?;
+                        done.push((entry, current));
+                    }
+                    Err(e) => {
+                        let error = e.to_string();
+                        let this_restored = self.undo_failed_action(entry, &current, &error)?;
+                        let others_restored = self.roll_back(&done)?;
+                        return Ok(ApplyOutcome::Failed {
+                            error,
+                            rolled_back: this_restored && others_restored,
+                        });
+                    }
                 }
             }
         }
@@ -594,20 +689,103 @@ impl<'a> Engine<'a> {
     // -- reading and writing targets -------------------------------------------
 
     fn capture(&self, action: &Action) -> Result<Captured, BackendError> {
+        let one = |s| Ok(Captured::Found(vec![s]));
+        let not_applicable = |r| Ok(Captured::NotApplicable(r));
         match action {
-            Action::Registry(r) => Ok(Captured::Found(
-                self.capture_registry(r.hive, &r.key, &r.value)?,
-            )),
-            Action::Service(s) => Ok(match self.services.query(&s.name)? {
-                Some(state) => Captured::Found(Snapshot::Service {
+            Action::Registry(r) => one(self.capture_registry(r.hive, &r.key, &r.value)?),
+            Action::Service(s) => match self.services.query(&s.name)? {
+                Some(state) => one(Snapshot::Service {
                     name: s.name.clone(),
                     state,
                 }),
-                None => Captured::NotApplicable(NotApplicable::ServiceMissing {
+                None => not_applicable(NotApplicable::ServiceMissing {
                     name: s.name.clone(),
                 }),
-            }),
+            },
+            Action::PowerPlan(p) => {
+                let power = self.power()?;
+                if !power.scheme_exists(&p.scheme)? {
+                    return not_applicable(NotApplicable::PowerPlanMissing {
+                        scheme: p.scheme.clone(),
+                    });
+                }
+                one(Snapshot::PowerPlan {
+                    active: power.active_scheme()?,
+                })
+            }
+            Action::PowerSetting(p) => {
+                let power = self.power()?;
+                let scheme = power.active_scheme()?;
+                match power.read_setting(&scheme, &p.subgroup, &p.setting)? {
+                    Some(values) => one(Snapshot::PowerSetting {
+                        scheme,
+                        subgroup: p.subgroup.clone(),
+                        setting: p.setting.clone(),
+                        values,
+                    }),
+                    None => not_applicable(NotApplicable::PowerSettingMissing {
+                        setting: p.setting.clone(),
+                    }),
+                }
+            }
+            Action::NetAdapter(n) => {
+                let found = self.capture_adapters(n)?;
+                if found.is_empty() {
+                    not_applicable(NotApplicable::NoNetworkAdapter {
+                        value: n.value.clone(),
+                    })
+                } else {
+                    Ok(Captured::Found(found))
+                }
+            }
+            Action::Appx(a) => match self.apps()?.query(&a.package)? {
+                AppxState::Installed => one(Snapshot::Appx {
+                    package: a.package.clone(),
+                    installed: true,
+                }),
+                AppxState::Removed => one(Snapshot::Appx {
+                    package: a.package.clone(),
+                    installed: false,
+                }),
+                AppxState::NotRestorable => not_applicable(NotApplicable::AppNotRestorable {
+                    package: a.package.clone(),
+                }),
+                AppxState::Missing => not_applicable(NotApplicable::AppMissing {
+                    package: a.package.clone(),
+                }),
+            },
+            Action::Cleanup(_) => not_applicable(NotApplicable::Cleanup),
         }
+    }
+
+    /// The value on every physical adapter whose driver offers it (or on every physical
+    /// adapter, for values that are not advertised).
+    fn capture_adapters(&self, n: &NetAdapterAction) -> Result<Vec<Snapshot>, BackendError> {
+        let hive = Hive::LocalMachine;
+        let mut found = Vec::new();
+        for sub in self.registry.subkeys(hive, NET_ADAPTER_CLASS)? {
+            let key = format!("{NET_ADAPTER_CLASS}\\{sub}");
+            if !is_net_adapter_key(&key) {
+                continue;
+            }
+            let physical = match self.registry.read(hive, &key, "Characteristics")? {
+                RegRead::Present(data) => {
+                    matches!(data.to_value(), Some(RegValue::Dword(c)) if c & NCF_PHYSICAL != 0)
+                }
+                _ => false,
+            };
+            if !physical {
+                continue;
+            }
+            if n.advertised {
+                let params = format!("{key}\\Ndi\\Params\\{}", n.value);
+                if self.registry.read(hive, &params, "")? == RegRead::KeyMissing {
+                    continue;
+                }
+            }
+            found.push(self.capture_registry(hive, &key, &n.value)?);
+        }
+        Ok(found)
     }
 
     /// Fresh capture of the same target a snapshot describes.
@@ -623,6 +801,32 @@ impl<'a> Engine<'a> {
                 }),
                 None => Err(BackendError::ServiceNotFound { name: name.clone() }),
             },
+            Snapshot::PowerPlan { .. } => Ok(Snapshot::PowerPlan {
+                active: self.power()?.active_scheme()?,
+            }),
+            Snapshot::PowerSetting {
+                scheme,
+                subgroup,
+                setting,
+                ..
+            } => match self.power()?.read_setting(scheme, subgroup, setting)? {
+                Some(values) => Ok(Snapshot::PowerSetting {
+                    scheme: scheme.clone(),
+                    subgroup: subgroup.clone(),
+                    setting: setting.clone(),
+                    values,
+                }),
+                None => Err(BackendError::NotFound {
+                    target: target.target(),
+                }),
+            },
+            Snapshot::Appx { package, .. } => Ok(Snapshot::Appx {
+                package: package.clone(),
+                installed: matches!(
+                    self.apps()?.query(package)?,
+                    AppxState::Installed | AppxState::NotRestorable
+                ),
+            }),
         }
     }
 
@@ -739,6 +943,28 @@ impl<'a> Engine<'a> {
             {
                 self.services.set(name, *state)?;
             }
+            (Snapshot::PowerPlan { active }, Snapshot::PowerPlan { active: now })
+                if !now.eq_ignore_ascii_case(active) =>
+            {
+                self.power_mut()?.set_active_scheme(active)?;
+            }
+            (
+                Snapshot::PowerSetting {
+                    scheme,
+                    subgroup,
+                    setting,
+                    values,
+                },
+                Snapshot::PowerSetting { values: now, .. },
+            ) if now != values => {
+                self.power_mut()?
+                    .write_setting(scheme, subgroup, setting, *values)?;
+            }
+            (Snapshot::Appx { package, installed }, Snapshot::Appx { installed: now, .. })
+                if now != installed =>
+            {
+                self.apps_mut()?.set_installed(package, *installed)?;
+            }
             // Already right, or (never happens) a snapshot of a different kind.
             _ => {}
         }
@@ -757,7 +983,8 @@ impl<'a> Engine<'a> {
 }
 
 enum Captured {
-    Found(Snapshot),
+    /// One snapshot per target (several for network adapter settings).
+    Found(Vec<Snapshot>),
     NotApplicable(NotApplicable),
 }
 
@@ -796,7 +1023,7 @@ fn desired_state(action: &Action, current: &Snapshot) -> Snapshot {
         Action::Service(s) => {
             let delayed_now = match current {
                 Snapshot::Service { state, .. } => state.delayed_auto_start,
-                Snapshot::Registry { .. } => false,
+                _ => false,
             };
             let (start, delayed_auto_start) = match s.startup {
                 // "automatic" means plain automatic, not delayed.
@@ -813,5 +1040,44 @@ fn desired_state(action: &Action, current: &Snapshot) -> Snapshot {
                 },
             }
         }
+        Action::PowerPlan(p) => Snapshot::PowerPlan {
+            active: p.scheme.clone(),
+        },
+        Action::PowerSetting(p) => match current {
+            Snapshot::PowerSetting {
+                scheme,
+                subgroup,
+                setting,
+                values,
+            } => Snapshot::PowerSetting {
+                scheme: scheme.clone(),
+                subgroup: subgroup.clone(),
+                setting: setting.clone(),
+                values: PowerValues {
+                    ac: p.ac.unwrap_or(values.ac),
+                    dc: p.dc.unwrap_or(values.dc),
+                },
+            },
+            // Never happens: the capture of a power setting is a power setting.
+            other => other.clone(),
+        },
+        Action::NetAdapter(n) => match current {
+            Snapshot::Registry {
+                hive, key, value, ..
+            } => Snapshot::Registry {
+                hive: *hive,
+                key: key.clone(),
+                value: value.clone(),
+                state: RegRead::Present(RegData::from_value(&n.set)),
+                missing_keys: Vec::new(),
+            },
+            other => other.clone(),
+        },
+        Action::Appx(a) => Snapshot::Appx {
+            package: a.package.clone(),
+            installed: false,
+        },
+        // Never planned (see `NotApplicable::Cleanup`).
+        Action::Cleanup(_) => current.clone(),
     }
 }

@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use pco_core::backend::memory::{MemoryRegistry, MemoryServices};
+use pco_core::backend::memory::{MemoryAppx, MemoryPower, MemoryRegistry, MemoryServices};
 use pco_core::backend::{
     BackendError, RegData, RegRead, RegistryBackend, ServiceBackend, ServiceStart, ServiceState,
 };
@@ -17,6 +17,7 @@ use pco_core::recipe::{self, Edition, Hive, Recipe, RegValue};
 
 const HKCU: Hive = Hive::CurrentUser;
 const KEY: &str = r"Software\PcOptimizerTest\Engine";
+const BALANCED: &str = "381b4222-f694-41f0-9685-ff5bb260df2e";
 
 /// Windows 11 24H2 Pro; form factor unknown (not detected before Stage 1).
 const SYS: SystemInfo = SystemInfo {
@@ -57,6 +58,8 @@ fn two_values() -> Recipe {
 struct World {
     reg: MemoryRegistry,
     svc: MemoryServices,
+    power: MemoryPower,
+    apps: MemoryAppx,
     journal: Journal,
 }
 
@@ -65,12 +68,16 @@ impl World {
         Self {
             reg,
             svc: MemoryServices::new(),
+            power: MemoryPower::new(BALANCED),
+            apps: MemoryAppx::new(),
             journal: Journal::open_in_memory().unwrap(),
         }
     }
 
     fn engine(&mut self) -> Engine<'_> {
         Engine::new(&mut self.reg, &mut self.svc, &mut self.journal, SYS)
+            .with_power(&mut self.power)
+            .with_apps(&mut self.apps)
     }
 }
 
@@ -351,6 +358,9 @@ impl RegistryBackend for LyingRegistry {
     fn delete_key_if_empty(&mut self, h: Hive, k: &str) -> Result<bool, BackendError> {
         self.0.delete_key_if_empty(h, k)
     }
+    fn subkeys(&self, h: Hive, k: &str) -> Result<Vec<String>, BackendError> {
+        self.0.subkeys(h, k)
+    }
 }
 
 #[test]
@@ -551,6 +561,9 @@ impl RegistryBackend for CrashingRegistry {
     }
     fn delete_key_if_empty(&mut self, h: Hive, k: &str) -> Result<bool, BackendError> {
         self.inner.delete_key_if_empty(h, k)
+    }
+    fn subkeys(&self, h: Hive, k: &str) -> Result<Vec<String>, BackendError> {
+        self.inner.subkeys(h, k)
     }
 }
 

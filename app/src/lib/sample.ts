@@ -75,6 +75,7 @@ export function sampleRecipes(lang: Lang): Recipe[] {
         },
       ],
       needsAdmin: false,
+      cleanup: false,
     },
     {
       id: "services.fax-disabled",
@@ -92,6 +93,7 @@ export function sampleRecipes(lang: Lang): Recipe[] {
       status: { code: "not_applicable", reason: { code: "service_missing", name: "Fax" } },
       changes: [],
       needsAdmin: true,
+      cleanup: false,
     },
   ];
 }

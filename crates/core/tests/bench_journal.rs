@@ -132,7 +132,7 @@ fn a_stage_1_journal_is_upgraded_and_keeps_its_sessions() {
             .unwrap();
     }
     let mut j = Journal::open(&path).unwrap();
-    assert_eq!(j.schema_version().unwrap(), 2);
+    assert_eq!(j.schema_version().unwrap(), 3);
     assert_eq!(j.sessions().unwrap().len(), 1, "existing sessions are kept");
     j.record_benchmark(1, "cs2", Label::Before, &run(100.0))
         .unwrap();

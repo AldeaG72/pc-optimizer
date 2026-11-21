@@ -31,7 +31,7 @@
     },
     "sources": { "type": "array", "minItems": 1, "items": { "type": "string", "format": "uri" } },
     "verified": { "type": "boolean", "description": "false până când cheile au fost verificate în documentație și testate în CI" },
-    "actions": { "type": "array", "minItems": 1, "items": { "oneOf": [ { "$ref": "#/$defs/registry" }, { "$ref": "#/$defs/service" } ] } }
+    "actions": { "type": "array", "minItems": 1, "items": { "oneOf": [ { "$ref": "#/$defs/registry" }, { "$ref": "#/$defs/service" }, { "$ref": "#/$defs/power-plan" }, { "$ref": "#/$defs/power-setting" }, { "$ref": "#/$defs/net-adapter" }, { "$ref": "#/$defs/appx" }, { "$ref": "#/$defs/cleanup" } ] } }
   },
   "$defs": {
     "i18n": {
@@ -70,6 +70,67 @@
         "type": { "const": "service" },
         "name": { "type": "string", "minLength": 1 },
         "startup": { "enum": ["automatic", "manual", "disabled"] }
+      }
+    },
+    "guid": {
+      "type": "string",
+      "pattern": "^\\{?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\}?$"
+    },
+    "power-plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Activează un plan de alimentare existent (GUID-ul planului).",
+      "required": ["type", "scheme"],
+      "properties": {
+        "type": { "const": "power-plan" },
+        "scheme": { "$ref": "#/$defs/guid" }
+      }
+    },
+    "power-setting": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "O setare a planului activ: valoarea pe priză (ac) și/sau pe baterie (dc).",
+      "required": ["type", "subgroup", "setting"],
+      "anyOf": [ { "required": ["ac"] }, { "required": ["dc"] } ],
+      "properties": {
+        "type": { "const": "power-setting" },
+        "subgroup": { "$ref": "#/$defs/guid" },
+        "setting": { "$ref": "#/$defs/guid" },
+        "ac": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "dc": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+      }
+    },
+    "net-adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "O valoare din cheia de driver a fiecărei plăci de rețea fizice.",
+      "required": ["type", "value", "kind", "set"],
+      "properties": {
+        "type": { "const": "net-adapter" },
+        "value": { "type": "string", "minLength": 1, "pattern": "^[^\\\\]+$" },
+        "kind": { "enum": ["dword", "qword", "string"] },
+        "set": { "type": ["integer", "string"] },
+        "advertised": { "type": "boolean", "description": "Doar plăcile al căror driver oferă setarea (implicit true)." }
+      }
+    },
+    "appx": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Elimină o aplicație preinstalată pentru utilizatorul curent; undo o reinstalează.",
+      "required": ["type", "package"],
+      "properties": {
+        "type": { "const": "appx" },
+        "package": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9.-]{2,99}$" }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Șterge fișiere dintr-un loc fix. Nu se poate anula.",
+      "required": ["type", "target"],
+      "properties": {
+        "type": { "const": "cleanup" },
+        "target": { "enum": ["user-temp", "windows-temp", "update-cache", "launcher-caches", "recycle-bin"] }
       }
     }
   }

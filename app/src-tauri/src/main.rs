@@ -109,12 +109,16 @@ async fn recipes(lang: String) -> Result<views::Catalog, String> {
         let mut journal = journal()?;
         let mut registry = ReadOnlyRegistry(WindowsRegistry::system());
         let mut services = WindowsServices::read_only();
+        let mut power = pco_core::backend::WindowsPower::read_only();
+        let mut apps = pco_core::backend::WindowsAppx::read_only();
         Ok(views::Catalog {
             recipes: views::recipe_views(
                 &recipes,
                 views::lang_from(&lang),
                 &mut registry,
                 &mut services,
+                &mut power,
+                &mut apps,
                 &mut journal,
                 SystemInfo::from(&host),
             ),
