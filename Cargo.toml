@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = ["crates/core", "crates/cli", "crates/elevated-helper", "crates/frame-demo"]
+# The Windows app has its own workspace (app/src-tauri/Cargo.toml).
+exclude = ["app"]
 
 [workspace.package]
 version = "0.0.1"

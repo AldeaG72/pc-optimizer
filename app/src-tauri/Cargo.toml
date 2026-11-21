@@ -1,0 +1,37 @@
+[package]
+name = "pc-optimizer"
+description = "PC Optimizer: the Windows app (Tauri 2 + Svelte)"
+version = "0.0.1"
+edition = "2021"
+license = "GPL-3.0-only"
+repository = "https://github.com/AldeaG72/pc-optimizer"
+publish = false
+
+# Its own workspace: the app is Windows-only and needs the built frontend, so the main
+# workspace (core, cli, helper) keeps building and testing on Linux too.
+[workspace]
+
+[[bin]]
+name = "pc-optimizer"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.7.6", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.7", features = [] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+pco-core = { path = "../../crates/core" }
+pco-helper = { path = "../../crates/elevated-helper" }
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+
+[profile.release]
+lto = true
+codegen-units = 1

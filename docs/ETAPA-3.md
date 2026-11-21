@@ -14,7 +14,7 @@ Etapa are patru părți. Fiecare se termină cu CI verde și se unește separat 
   întunecat, în română, ca pagini de previzualizare. Proprietarul le aprobă (sau cere schimbări) **înainte** de programare.
   *(Pânza „PC Optimizer – ecrane”, privată, la proprietar: https://claude.ai/artifact/2EyUo45QHBeXLCTaX1GiMc.
   Aprobată fără schimbări pe 2026-11-21. Rămâne deschis pentru 3.8: cum pornește măsurarea când ești în joc.)*
-- [ ] **3.2 `crates/elevated-helper`** (`pco-helper.exe`):
+- [x] **3.2 `crates/elevated-helper`** (`pco-helper.exe`):
   - pornit de aplicație cu UAC doar când e nevoie; se închide singur după ce termină;
   - vorbește cu aplicația printr-un canal local (named pipe) pe care îl poate deschide doar utilizatorul curent;
   - acceptă **doar**: „aplică <ID-uri>”, „anulează <ID-uri> | tot” și acțiunile fixe de Depanare (3.14). Orice altceva
@@ -22,6 +22,9 @@ Etapa are patru părți. Fiecare se termină cu CI verde și se unește separat 
   - aceleași gărzi ca `pco` (Windows 11, joc/anti-cheat pornit, jurnal write-ahead, recuperare);
   - dacă UAC îl pornește sub alt cont de administrator decât cel al aplicației: refuză, cu mesaj clar (altfel setările
     „pentru utilizatorul curent” ar ajunge la alt utilizator).
+  *(În plus: jurnalul stă în folderul utilizatorului, deci orice program pornit de el l-ar putea modifica; helper-ul
+  anulează doar intrări care arată exact spre ținta rețetei incluse pe care o numesc. Celălalt capăt al canalului nu
+  poate „împrumuta” drepturile helper-ului. Testat în CI: aplicare → anulare reală prin helper, 2026-11-21.)*
 - [ ] **3.3 Scheletul aplicației** (`app/`): fereastră ~1100×720 cu bară de titlu proprie, fundal Mica, bară laterală
   pliabilă, temă după Windows, fontul Inter și iconițele Lucide incluse local (fără nicio cerere pe internet).
   Traducerile RO/EN dintr-o singură sursă comună cu `pco`, cu forme de plural corecte („1 rulare”, „3 rulări”).

@@ -21,3 +21,10 @@ jurnal-test.txt
 Thumbs.db
 Desktop.ini
 .DS_Store
+/app/node_modules/
+/app/dist/
+/app/src-tauri/target/
+/app/src-tauri/gen/
+
+# Local Claude Code settings
+/.claude/
