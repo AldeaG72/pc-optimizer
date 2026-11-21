@@ -30,68 +30,7 @@ pub trait BenchDriver {
     fn now_ms(&mut self) -> i64;
 }
 
-/// What is measured.
-struct Target {
-    /// Stored in the history: the game id, or the process name in lowercase.
-    key: String,
-    game: Option<GameId>,
-    /// Executables that count as the target (e.g. Apex has a DX11 and a DX12 build).
-    processes: Vec<String>,
-}
-
-pub fn game_key(id: GameId) -> &'static str {
-    match id {
-        GameId::Cs2 => "cs2",
-        GameId::Dota2 => "dota2",
-        GameId::Apex => "apex",
-        GameId::Fortnite => "fortnite",
-        GameId::Valorant => "valorant",
-        GameId::LeagueOfLegends => "lol",
-    }
-}
-
-fn game_processes(id: GameId) -> &'static [&'static str] {
-    match id {
-        GameId::Cs2 => &["cs2.exe"],
-        GameId::Dota2 => &["dota2.exe"],
-        GameId::Apex => &["r5apex.exe", "r5apex_dx12.exe"],
-        GameId::Fortnite => &["FortniteClient-Win64-Shipping.exe"],
-        GameId::Valorant => &["VALORANT-Win64-Shipping.exe"],
-        GameId::LeagueOfLegends => &["League of Legends.exe"],
-    }
-}
-
-/// Games without a fixed test map (SPEC 4.4): measured during normal play.
-fn precise(id: GameId) -> bool {
-    !matches!(id, GameId::Valorant | GameId::LeagueOfLegends)
-}
-
-fn resolve(target: &str) -> Option<Target> {
-    let lower = target.trim().to_lowercase();
-    let game = match lower.as_str() {
-        "cs2" | "counter-strike" => Some(GameId::Cs2),
-        "dota2" | "dota" => Some(GameId::Dota2),
-        "apex" => Some(GameId::Apex),
-        "fortnite" => Some(GameId::Fortnite),
-        "valorant" => Some(GameId::Valorant),
-        "lol" | "league" => Some(GameId::LeagueOfLegends),
-        _ => None,
-    };
-    if let Some(id) = game {
-        return Some(Target {
-            key: game_key(id).to_owned(),
-            game: Some(id),
-            processes: game_processes(id).iter().map(|p| (*p).to_owned()).collect(),
-        });
-    }
-    let valid_exe =
-        lower.ends_with(".exe") && lower.len() > 4 && !lower.contains(['\\', '/', '"', '\'']);
-    valid_exe.then(|| Target {
-        key: lower.clone(),
-        game: None,
-        processes: vec![target.trim().to_owned()],
-    })
-}
+pub use pco_core::bench::target::{game_key, precise, resolve, Target};
 
 pub fn run(env: &mut Env<'_>, t: &Texts, cmd: &BenchCmd, out: &mut dyn Write) -> Result<Exit> {
     match cmd {

@@ -4,10 +4,11 @@
 //! so it is tested on sample CSV files on any OS.
 
 pub mod presentmon;
+pub mod target;
 
 use std::collections::HashMap;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub enum BenchError {
@@ -60,7 +61,7 @@ pub struct Series {
 pub const MIN_FRAMES: usize = 30;
 
 /// One run's result.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Metrics {
     pub frames: u64,
     pub seconds: f64,

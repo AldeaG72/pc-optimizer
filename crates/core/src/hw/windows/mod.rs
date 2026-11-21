@@ -3,6 +3,7 @@
 
 mod display;
 mod games;
+mod launch;
 mod power;
 mod software;
 mod storage;
@@ -14,6 +15,8 @@ use windows::Win32::System::Registry::{
     RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE,
     KEY_ENUMERATE_SUB_KEYS, KEY_WOW64_64KEY,
 };
+
+pub use launch::launch_game;
 
 use super::HwInfo;
 use crate::backend::windows::WindowsRegistry;

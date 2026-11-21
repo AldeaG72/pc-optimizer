@@ -105,6 +105,73 @@ pub fn arguments(process: &str, csv: &Path, seconds: u32) -> Vec<String> {
     ]
 }
 
+/// One timed capture of `process` with the PresentMon at `exe` (checked again right before
+/// it runs); returns the CSV text. Stops early when `cancel` becomes true. Windows only;
+/// needs administrator rights (ETW).
+#[cfg(windows)]
+pub fn capture(
+    exe: &Path,
+    process: &str,
+    seconds: u32,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Result<String, String> {
+    use std::process::{Command, Stdio};
+    use std::sync::atomic::Ordering;
+    use std::time::{Duration, Instant};
+
+    verify(exe).map_err(|e| e.to_string())?;
+    static CAPTURES: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let n = CAPTURES.fetch_add(1, Ordering::SeqCst);
+    let csv = std::env::temp_dir().join(format!("pco-bench-{}-{n}.csv", std::process::id()));
+    let log = csv.with_extension("log");
+    let _ = std::fs::remove_file(&csv);
+    // PresentMon's own messages go to a file (not a pipe: it cannot fill up and block),
+    // so a failed capture can say why.
+    let log_file = std::fs::File::create(&log).map_err(|e| e.to_string())?;
+    let log_err = log_file.try_clone().map_err(|e| e.to_string())?;
+    let mut child = Command::new(exe)
+        .args(arguments(process, &csv, seconds))
+        .stdin(Stdio::null())
+        .stdout(log_file)
+        .stderr(log_err)
+        .spawn()
+        .map_err(|e| format!("cannot start PresentMon: {e}"))?;
+    // PresentMon stops by itself (--timed); give it a margin, then stop it.
+    let deadline = Instant::now() + Duration::from_secs(u64::from(seconds) + 30);
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if cancel.load(Ordering::SeqCst) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = std::fs::remove_file(&csv);
+                let _ = std::fs::remove_file(&log);
+                return Err("cancelled".into());
+            }
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(250)),
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("PresentMon did not stop in time".into());
+            }
+            Err(e) => return Err(e.to_string()),
+        }
+    };
+    let said = std::fs::read_to_string(&log).unwrap_or_default();
+    let _ = std::fs::remove_file(&log);
+    let text = std::fs::read_to_string(&csv).map_err(|_| {
+        let mut why = "no frames were captured (was the game running and in focus?)".to_owned();
+        let said: String = said.split_whitespace().collect::<Vec<_>>().join(" ");
+        if !status.success() || !said.is_empty() {
+            let skip = said.chars().count().saturating_sub(300);
+            let tail: String = said.chars().skip(skip).collect();
+            why.push_str(&format!(" [PresentMon {status}: {tail}]"));
+        }
+        why
+    });
+    let _ = std::fs::remove_file(&csv);
+    text
+}
 #[cfg(test)]
 mod tests {
     use super::*;
