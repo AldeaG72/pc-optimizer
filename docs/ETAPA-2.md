@@ -37,11 +37,13 @@ Jocurile fără o hartă fixă de test (VALORANT, League of Legends) apar cu „
   oprire curată cu Ctrl+C. Blocat dacă PresentMon lipsește sau amprenta nu se potrivește.
   *(Forma finală: `pco bench run <joc sau nume.exe> --before|--after`, `pco bench compare|history|forget`. EA app nu
   poate fi pornit automat: pornești jocul tu. Ctrl+C oprește și PresentMon; în istoric intră doar rulările terminate.)*
-- [ ] **2.7 Teste**:
+- [x] **2.7 Teste**:
   - calculul, pe fișiere CSV de exemplu (stabil, cu sacade, cu cadre pierdute, gol, stricat);
   - verdictul (creștere, scădere reală, scădere în zgomot);
   - istoricul și migrarea jurnalului;
   - **în CI, pe Windows**: o aplicație mică de test care desenează cadre, măsurată de PresentMon cap-coadă.
+    *(`crates/frame-demo`, ~100 cadre/s. Prima rulare verde, 2026-11-21: 4 rulări cu FPS mediu ~96 și 1% low
+    65,8–91,7 — plauzibile; „înainte → după” afișat.)*
 - [ ] **2.8 Testul proprietarului**: pe laptopul tău nu e niciun joc dintre cele 6, așa că măsori o pagină web cu
   animație 3D (`pco bench run msedge.exe --before --runs 1`) — câteva minute. Măsurarea doar citește, deci e permisă.
 
