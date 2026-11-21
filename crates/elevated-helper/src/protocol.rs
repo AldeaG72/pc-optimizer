@@ -34,14 +34,16 @@ pub const BENCH_WARMUP: std::ops::RangeInclusive<u32> = 0..=60;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Request {
+    /// `restore_point`: create a Windows restore point first (Settings, optional).
     Apply {
         ids: Vec<String>,
+        restore_point: bool,
     },
     Undo {
         ids: Vec<String>,
     },
     UndoAll,
-    /// Measure FPS: fter false = before the tweaks.
+    /// Measure FPS: `after` false = before the tweaks.
     Bench {
         target: String,
         after: bool,
@@ -55,7 +57,9 @@ impl Request {
     /// The request line the app sends.
     pub fn to_line(&self) -> String {
         let value = match self {
-            Request::Apply { ids } => serde_json::json!({"v": VERSION, "op": "apply", "ids": ids}),
+            Request::Apply { ids, restore_point } => serde_json::json!({
+                "v": VERSION, "op": "apply", "ids": ids, "restore_point": restore_point
+            }),
             Request::Undo { ids } => serde_json::json!({"v": VERSION, "op": "undo", "ids": ids}),
             Request::UndoAll => serde_json::json!({"v": VERSION, "op": "undo_all"}),
             Request::Bench {
@@ -195,6 +199,11 @@ pub enum Event {
         id: String,
         outcome: Outcome,
     },
+    /// The restore point asked for before applying: created, or why not (`message`).
+    RestorePoint {
+        created: bool,
+        message: Option<String>,
+    },
     /// Benchmark: waiting for the game to start (the app launched it).
     BenchWaitingGame {
         processes: Vec<String>,
@@ -315,7 +324,8 @@ pub fn parse_request(line: &str) -> Result<Request, Refusal> {
         _ => return Err(Refusal::BadShape("op".into())),
     };
     let allowed: &[&str] = match op {
-        "apply" | "undo" => &["v", "op", "ids"],
+        "apply" => &["v", "op", "ids", "restore_point"],
+        "undo" => &["v", "op", "ids"],
         "undo_all" => &["v", "op"],
         "bench" => &["v", "op", "target", "label", "runs", "duration", "warmup"],
         _ => return Err(Refusal::BadShape("op".into())),
@@ -348,7 +358,12 @@ pub fn parse_request(line: &str) -> Result<Request, Refusal> {
         }
     }
     Ok(if op == "apply" {
-        Request::Apply { ids }
+        let restore_point = match map.get("restore_point") {
+            None => false,
+            Some(Value::Bool(b)) => *b,
+            Some(_) => return Err(Refusal::BadShape("restore_point".into())),
+        };
+        Request::Apply { ids, restore_point }
     } else {
         Request::Undo { ids }
     })
@@ -368,8 +383,24 @@ mod tests {
                 ids: vec![
                     "gaming.game-mode-on".into(),
                     "privacy.advertising-id-off".into()
-                ]
+                ],
+                restore_point: false
             })
+        );
+        assert_eq!(
+            parse_request(r#"{"v":1,"op":"apply","ids":["a.b"],"restore_point":true}"#),
+            Ok(Request::Apply {
+                ids: vec!["a.b".into()],
+                restore_point: true
+            })
+        );
+        assert_eq!(
+            parse_request(r#"{"v":1,"op":"apply","ids":["a.b"],"restore_point":"yes"}"#),
+            Err(Refusal::BadShape("restore_point".into()))
+        );
+        assert_eq!(
+            parse_request(r#"{"v":1,"op":"undo","ids":["a.b"],"restore_point":true}"#),
+            Err(Refusal::BadShape("restore_point".into()))
         );
         assert_eq!(
             parse_request(
@@ -386,6 +417,7 @@ mod tests {
         for r in [
             Request::Apply {
                 ids: vec!["a.b".into()],
+                restore_point: true,
             },
             Request::Undo {
                 ids: vec!["a.b".into()],
@@ -450,7 +482,13 @@ mod tests {
         assert_eq!(parse_request(&huge), Err(Refusal::TooLarge));
         let many: Vec<String> = (0..=MAX_IDS).map(|i| format!("a.b{i}")).collect();
         assert_eq!(
-            parse_request(&Request::Apply { ids: many }.to_line()),
+            parse_request(
+                &Request::Apply {
+                    ids: many,
+                    restore_point: false
+                }
+                .to_line()
+            ),
             Err(Refusal::BadShape("ids".into()))
         );
     }

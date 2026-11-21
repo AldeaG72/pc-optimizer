@@ -56,6 +56,7 @@ fn unknown_recipe_is_refused_over_the_pipe() {
         None,
         &Request::Apply {
             ids: vec!["evil.anything".into()],
+            restore_point: false,
         },
     )
     .unwrap();
@@ -157,6 +158,7 @@ fn ci_applies_and_undoes_through_the_helper() {
         None,
         &Request::Apply {
             ids: vec!["gaming.game-mode-on".into(), "services.fax-disabled".into()],
+            restore_point: false,
         },
     )
     .unwrap();

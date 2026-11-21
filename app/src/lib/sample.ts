@@ -1,7 +1,7 @@
 // Sample answers for when the interface runs outside the app (tests, browser previews).
 // Nothing here touches the PC.
 
-import type { BenchGame, HelperEvent, HelperRequest, HomeView, Recipe, Verdict } from "./backend";
+import type { BenchGame, HelperEvent, HelperRequest, HomeView, Recipe, Series, Verdict } from "./backend";
 
 /** A laptop like the owner's (Stage 1 data), in Romanian. */
 export function sampleHome(): HomeView {
@@ -186,4 +186,26 @@ export function sampleEvents(request: HelperRequest): HelperEvent[] {
     ]),
     { event: "done", restart: "none" },
   ];
+}
+
+export function sampleHistory(): Series[] {
+  const series = (id: number, label: "before" | "after", fps: number[] | null): Series[] =>
+    fps
+      ? [
+          {
+            id,
+            target: "cs2",
+            label,
+            runs: fps.map((f) => ({ frames: f * 60, seconds: 60, avg_fps: f, low1_fps: f * 0.6, avg_frametime_ms: 1000 / f })),
+          },
+        ]
+      : [];
+  return [...series(2, "after", sampleBench.after), ...series(1, "before", sampleBench.before)];
+}
+
+export function sampleForget(): number {
+  const n = (sampleBench.before?.length ?? 0) + (sampleBench.after?.length ?? 0);
+  sampleBench.before = null;
+  sampleBench.after = null;
+  return n;
 }

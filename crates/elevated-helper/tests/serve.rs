@@ -23,6 +23,8 @@ struct World {
     journal: Journal,
     host: Host,
     running: Vec<String>,
+    restore_points: u32,
+    restore_point_result: Result<Option<String>, String>,
 }
 
 impl World {
@@ -50,6 +52,8 @@ impl World {
                 form_factor: None,
             },
             running: vec!["explorer.exe".into()],
+            restore_points: 0,
+            restore_point_result: Ok(None),
         }
     }
 
@@ -62,6 +66,10 @@ impl World {
             running: self.running.clone(),
             blocked: BlockedProcesses::builtin().unwrap(),
             recipes: recipe::load_embedded(pco_core::embedded::RECIPES).unwrap(),
+            restore_point: &mut || {
+                self.restore_points += 1;
+                self.restore_point_result.clone()
+            },
         };
         let mut events = Vec::new();
         serve(&mut env, &request, &mut |e| events.push(e));
@@ -89,6 +97,7 @@ impl World {
 fn apply(ids: &[&str]) -> Request {
     Request::Apply {
         ids: ids.iter().map(|s| (*s).to_owned()).collect(),
+        restore_point: false,
     }
 }
 
@@ -378,4 +387,45 @@ fn refuses_a_journal_edited_to_point_elsewhere() {
             reason: BlockReason::JournalUntrusted { .. }
         }]
     ));
+}
+
+#[test]
+fn restore_point_first_when_asked() {
+    let mut w = World::new();
+    let events = w.send(Request::Apply {
+        ids: vec![MODE.into()],
+        restore_point: true,
+    });
+    assert_eq!(
+        events[0],
+        Event::RestorePoint {
+            created: true,
+            message: None
+        }
+    );
+    assert_eq!(events[1], Event::Started { id: MODE.into() });
+    assert_eq!(w.restore_points, 1);
+
+    // Not asked: none. Failed: reported, and the tweaks still apply.
+    let mut w = World::new();
+    w.send(apply(&[MODE]));
+    assert_eq!(w.restore_points, 0);
+    w.restore_point_result = Err("System Restore is off".into());
+    let events = w.send(Request::Apply {
+        ids: vec![DVR.into()],
+        restore_point: true,
+    });
+    assert_eq!(
+        events[0],
+        Event::RestorePoint {
+            created: false,
+            message: Some("System Restore is off".into())
+        }
+    );
+    assert_eq!(
+        events.last(),
+        Some(&Event::Done {
+            restart: Restart::None
+        })
+    );
 }

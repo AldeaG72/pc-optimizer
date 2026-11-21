@@ -164,6 +164,8 @@ pub fn recipe_views(
 pub enum HelperRequest {
     Apply {
         ids: Vec<String>,
+        #[serde(default)]
+        restore_point: bool,
     },
     Undo {
         ids: Vec<String>,
@@ -194,7 +196,10 @@ impl HelperRequest {
             }
         };
         Ok(match self {
-            HelperRequest::Apply { ids } => Request::Apply { ids: check(ids)? },
+            HelperRequest::Apply { ids, restore_point } => Request::Apply {
+                ids: check(ids)?,
+                restore_point: *restore_point,
+            },
             HelperRequest::Undo { ids } => Request::Undo { ids: check(ids)? },
             HelperRequest::UndoAll => Request::UndoAll,
             HelperRequest::Bench {
@@ -365,7 +370,8 @@ mod tests {
         assert_eq!(
             ok.to_request(),
             Ok(Request::Apply {
-                ids: vec!["gaming.game-mode-on".into()]
+                ids: vec!["gaming.game-mode-on".into()],
+                restore_point: false
             })
         );
         let all: HelperRequest = serde_json::from_str(r#"{"op":"undo_all"}"#).unwrap();

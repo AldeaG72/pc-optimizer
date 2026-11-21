@@ -17,7 +17,7 @@
     type Outcome,
     type Restart,
   } from "../lib/backend";
-  import { t, ui } from "../lib/state.svelte";
+  import { prefs, t, ui } from "../lib/state.svelte";
   import { byId, clearPending, loadCatalog, pending } from "../lib/tweaks.svelte";
 
   type Line = { id: string; name: string; state: "waiting" | "working" | "ok" | "skipped" | "error"; note: string };
@@ -93,6 +93,13 @@
         if (l) Object.assign(l, outcomeLine(e.outcome));
         break;
       }
+      case "restore_point":
+        notes.push(
+          e.created
+            ? t("app.apply.restore_point_ok")
+            : t("app.apply.restore_point_skipped", { message: e.message ?? "" }),
+        );
+        break;
       case "recovered":
         notes.push(t("app.apply.recovered", { restored: e.restored }));
         break;
@@ -133,7 +140,7 @@
     // Undo first, then apply: each request is one UAC prompt.
     const requests: HelperRequest[] = [];
     if (undo.length) requests.push({ op: "undo", ids: undo });
-    if (apply.length) requests.push({ op: "apply", ids: apply });
+    if (apply.length) requests.push({ op: "apply", ids: apply, restore_point: prefs.restorePoint });
     try {
       for (const request of requests) {
         await runHelper(request, onEvent);

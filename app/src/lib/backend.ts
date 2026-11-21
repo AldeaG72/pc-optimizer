@@ -8,7 +8,9 @@ import { isTauri } from "./window";
 import {
   sampleCancel,
   sampleEvents,
+  sampleForget,
   sampleGames,
+  sampleHistory,
   sampleHome,
   sampleRecipes,
   sampleStatus,
@@ -83,6 +85,7 @@ export type HelperEvent =
   | { event: "recovered"; session: number; restored: number }
   | { event: "started"; id: string }
   | { event: "result"; id: string; outcome: Outcome }
+  | { event: "restore_point"; created: boolean; message: string | null }
   | { event: "bench_waiting_game"; processes: string[] }
   | { event: "bench_waiting_key"; run: number; runs: number }
   | { event: "bench_measuring"; run: number; seconds: number }
@@ -92,7 +95,7 @@ export type HelperEvent =
   | { event: "error"; message: string };
 
 export type HelperRequest =
-  | { op: "apply"; ids: string[] }
+  | { op: "apply"; ids: string[]; restore_point?: boolean }
   | { op: "undo"; ids: string[] }
   | { op: "undo_all" }
   | { op: "bench"; target: string; label: "before" | "after"; runs: number; duration: number; warmup: number };
@@ -270,4 +273,25 @@ export async function benchStatus(
 export async function cancelHelper(): Promise<void> {
   if (isTauri()) await call<void>("cancel_helper");
   else sampleCancel();
+}
+
+export interface Series {
+  id: number;
+  target: string;
+  label: "before" | "after";
+  runs: Metrics[];
+}
+
+/** Benchmark history, newest first. */
+export async function benchHistory(): Promise<Series[]> {
+  return isTauri() ? call<Series[]>("bench_history") : sampleHistory();
+}
+
+/** Deletes the whole benchmark history; how many results were deleted. */
+export async function benchForget(): Promise<number> {
+  return isTauri() ? call<number>("bench_forget") : sampleForget();
+}
+
+export async function appVersion(): Promise<string> {
+  return isTauri() ? call<string>("app_version") : "0.0.1";
 }

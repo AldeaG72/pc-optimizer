@@ -179,6 +179,23 @@ async fn run_helper(
     .await
 }
 
+/// Settings › Benchmark history › Delete: the app's own results, nothing in Windows.
+#[tauri::command]
+async fn bench_forget() -> Result<usize, String> {
+    blocking(|| {
+        journal()?
+            .forget_benchmarks(None)
+            .map_err(|e| e.to_string())
+    })
+    .await
+}
+
+/// The app's version, for Settings › About.
+#[tauri::command]
+fn app_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
 /// "Stop" on a running benchmark: the runs measured so far are kept.
 #[tauri::command]
 fn cancel_helper(state: tauri::State<'_, HelperState>) {
@@ -265,6 +282,8 @@ fn main() {
             bench_history,
             run_helper,
             cancel_helper,
+            bench_forget,
+            app_version,
             bench_games,
             launch_game,
             bench_status,

@@ -27,6 +27,9 @@ pub struct Env<'a> {
     pub blocked: BlockedProcesses,
     /// The recipes built into the helper; the only ones it can apply.
     pub recipes: Vec<Recipe>,
+    /// Creates a Windows restore point: `Ok(None)` created, `Ok(Some(why))` skipped by
+    /// Windows (e.g. one was made in the last 24 hours), `Err` failed.
+    pub restore_point: &'a mut dyn FnMut() -> Result<Option<String>, String>,
 }
 
 impl Env<'_> {
@@ -66,7 +69,7 @@ fn run(
 
     // Only recipes built into the helper, for apply and for undo.
     let ids: Vec<String> = match request {
-        Request::Apply { ids } | Request::Undo { ids } => {
+        Request::Apply { ids, .. } | Request::Undo { ids } => {
             if let Some(unknown) = ids.iter().find(|id| env.recipe(id).is_none()) {
                 emit(Event::Refused {
                     reason: Refusal::UnknownRecipe(unknown.clone()),
@@ -164,6 +167,28 @@ fn run(
             reason: BlockReason::NeedsAdmin,
         });
         return Ok(());
+    }
+
+    // Optional (Settings): a Windows restore point before the first change. If it cannot
+    // be made the tweaks still apply; the journal is what undoes them.
+    if matches!(
+        request,
+        Request::Apply {
+            restore_point: true,
+            ..
+        }
+    ) {
+        let event = match (env.restore_point)() {
+            Ok(None) => Event::RestorePoint {
+                created: true,
+                message: None,
+            },
+            Ok(Some(why)) | Err(why) => Event::RestorePoint {
+                created: false,
+                message: Some(why),
+            },
+        };
+        emit(event);
     }
 
     let mut restart = RequiresRestart::None;
