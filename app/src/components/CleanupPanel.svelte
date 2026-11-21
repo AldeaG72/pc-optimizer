@@ -7,7 +7,7 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { onMount } from "svelte";
   import { cleanupSizes, cleanUser, runHelper, type CleanSize, type Recipe } from "../lib/backend";
-  import { formatBytes } from "../lib/describe";
+  import { formatBytes, helperError } from "../lib/describe";
   import { t, ui } from "../lib/state.svelte";
 
   let { recipes, onSelect }: { recipes: Recipe[]; onSelect: (id: string) => void } = $props();
@@ -64,7 +64,7 @@
       }
     } catch (e) {
       // "cancelled": No at the UAC prompt; the user's own files were still cleaned.
-      errors.push(String(e) === "cancelled" ? t("app.clean.uac_no") : String(e));
+      errors.push(String(e) === "cancelled" ? t("app.clean.uac_no") : helperError(e));
     }
     phase = "done";
     picked = [];

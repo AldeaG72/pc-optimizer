@@ -3,6 +3,7 @@
 import type { Lang } from "./i18n";
 import { systemLang as browserLang, textsFor } from "./texts";
 import {
+  dailyBackup,
   defaultSettings,
   getSettings,
   saveSettings,
@@ -58,6 +59,8 @@ export async function loadSettings(): Promise<void> {
   ui.collapsed = saved.sidebarCollapsed;
   ui.tourOpen = saved.tourAccepted !== version;
   ui.loaded = true;
+  // The optional daily backup: once a day, in the background; a failure is not shown.
+  if (saved.dailyBackup) void dailyBackup().catch(() => {});
 }
 
 /** Everything to save, from `ui` and `prefs`. */

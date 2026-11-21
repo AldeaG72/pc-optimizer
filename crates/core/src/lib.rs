@@ -6,6 +6,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod backend;
+pub mod backup;
 pub mod bench;
 pub mod cleanup;
 pub mod engine;
@@ -15,6 +16,7 @@ pub mod hw;
 pub mod i18n;
 pub mod journal;
 pub mod recipe;
+pub mod report;
 pub mod startup;
 
 /// The reviewed recipes from `recipes/`, compiled into every binary (see `build.rs`), so

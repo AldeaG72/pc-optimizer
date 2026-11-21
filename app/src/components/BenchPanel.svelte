@@ -11,6 +11,7 @@
     type Metrics,
     type Verdict,
   } from "../lib/backend";
+  import { helperError } from "../lib/describe";
   import { t, ui } from "../lib/state.svelte";
 
   interface Props {
@@ -110,7 +111,7 @@
         onEvent,
       );
     } catch (e) {
-      error = String(e).includes("cancelled") ? t("app.apply.cancelled_text") : t("app.helper_error", { message: String(e) });
+      error = String(e).includes("cancelled") ? t("app.apply.cancelled_text") : helperError(e);
     }
     phase = "finished";
     if (saved > 0) {

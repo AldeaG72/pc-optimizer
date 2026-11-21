@@ -16,7 +16,7 @@
     type Outcome,
     type Restart,
   } from "../lib/backend";
-  import { naText } from "../lib/describe";
+  import { helperError, naText } from "../lib/describe";
   import { prefs, t, ui } from "../lib/state.svelte";
   import { byId, clearPending, loadCatalog, pending } from "../lib/tweaks.svelte";
 
@@ -146,7 +146,7 @@
     } catch (e) {
       if (String(e).includes("cancelled")) phase = "cancelled";
       else {
-        problem = t("app.helper_error", { message: String(e) });
+        problem = helperError(e);
         phase = "failed";
       }
     }

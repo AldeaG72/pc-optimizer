@@ -87,6 +87,9 @@ Decizii pentru Etapa 3 (2026-11-22):
 - **Aplicații preinstalate:** câte un comutator pe aplicație, niciuna în „Recomandate”; reinstalarea din același comutator.
 - **OneDrive:** doar oprit la pornire; nu se dezinstalează (reinstalarea ar cere internet).
 - **Amânarea update-urilor de funcții:** 180 de zile (doar Pro; update-urile de securitate neatinse).
+- **Copia zilnică (3.13):** opțională, păstrează ultimele 7 zile, lângă jurnal.
+- **Exportul de loguri (3.13):** fereastra „Salvează ca”, cu numele propus `pc-optimizer-log.txt`.
+- **Instalarea (3.15):** în Program Files (UAC o dată la instalare), ca helper-ul de administrator să stea într-un folder pe care alte programe nu-l pot modifica.
 - **Aplicații la pornire (3.12):** impactul e o estimare după tip, dintr-o listă de programe cunoscute (mare / mediu / mic / necunoscut), plus mărimea programului; oprirea trece prin jurnal, deci „Anulează tot” și dezinstalarea le repornesc; doar programele clasice (registrul Run și folderul Startup), cele din Store se schimbă din Setări › Aplicații › Pornire.
 
 ### 4.3 Driver video (automat, cu undo)

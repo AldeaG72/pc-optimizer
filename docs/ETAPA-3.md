@@ -98,8 +98,13 @@ Etapa are patru părți. Fiecare se termină cu CI verde și se unește separat 
 
 ## Partea D — Lansarea beta
 
-- [ ] **3.13 Siguranță**: export de loguri anonimizat (hardware, Windows, tweak-uri + erori, benchmark — fără nume de
+- [x] **3.13 Siguranță**: export de loguri anonimizat (hardware, Windows, tweak-uri + erori, benchmark — fără nume de
   utilizator/PC/IP), backup zilnic opțional al cheilor de registru atinse, mesaj simplu dacă antivirusul blochează.
+  *(2026-11-22: în Setări › Siguranță. Exportul: fereastra „Salvează ca”, `pc-optimizer-log.txt`; numele de
+  utilizator, al PC-ului, folderul profilului, orice `\Users\<nume>` și adresele IPv4 sunt înlocuite, etichetele de
+  volum lipsesc. Copia zilnică: un `.reg` cu valorile schimbate de aplicație, în `backups\` lângă jurnal, ultimele 7
+  zile; se importă cu dublu-clic. Antivirus: dacă helper-ul lipsește, e refuzat de Windows sau oprit înainte să se
+  conecteze, aplicația spune clar că probabil antivirusul l-a blocat și ce poți face.)*
 - [ ] **3.14 Depanare** (în Setări, SPEC 4.8): resetare rețea, reparare Windows Update, scanare sistem (sfc + DISM),
   curățarea cache-ului de shadere, scurtături spre panourile Windows. Acțiuni fixe, rulate de helper.
 - [ ] **3.15 Installer** (Setup.exe, NSIS din Tauri) cu helper-ul și PresentMon (amprenta verificată la build).

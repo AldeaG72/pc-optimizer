@@ -67,6 +67,26 @@ fn helper_path() -> Result<PathBuf, String> {
     Err("pco-helper.exe is missing next to the app".into())
 }
 
+/// What the interface shows when the helper cannot run. "antivirus": the file is missing
+/// (quarantined), Windows refused to start it (access denied, "virus detected", blocked by
+/// policy), or it was stopped before it could connect.
+fn helper_error(e: pco_helper::pipe::RunError) -> String {
+    use pco_helper::pipe::RunError;
+    const BLOCKED: [&str; 5] = [
+        "(os error 2)",
+        "(os error 5)",
+        "(os error 225)",
+        "(os error 226)",
+        "(os error 1260)",
+    ];
+    match e {
+        RunError::Cancelled => "cancelled".to_owned(),
+        RunError::NoConnection => "antivirus".to_owned(),
+        RunError::Launch(msg) if BLOCKED.iter().any(|c| msg.contains(c)) => "antivirus".to_owned(),
+        other => other.to_string(),
+    }
+}
+
 async fn blocking<T: Send + 'static>(
     work: impl FnOnce() -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
@@ -95,6 +115,105 @@ fn save_settings(settings: Settings) -> Result<(), String> {
     let dir = data_dir()?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     settings.save(&dir.join("settings.json"))
+}
+
+/// Today, in days since 1970-01-01.
+fn today_days() -> i64 {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    i64::try_from(secs / 86_400).unwrap_or(0)
+}
+
+/// The optional daily backup (Settings): today's `.reg` copy of the values the app changed,
+/// once a day, last 7 kept. Reads the registry only.
+#[tauri::command]
+async fn daily_backup() -> Result<Option<String>, String> {
+    blocking(|| {
+        let dir = data_dir()?.join("backups");
+        let journal = journal()?;
+        let reg = ReadOnlyRegistry(WindowsRegistry::system());
+        let today = pco_core::backup::date_from_days(today_days());
+        pco_core::backup::run_daily(&dir, &today, &reg, &journal)
+            .map(|p| p.map(|p| p.display().to_string()))
+            .map_err(|e| e.to_string())
+    })
+    .await
+}
+
+/// The anonymized support log (3.13).
+fn build_report(lang: &str) -> Result<String, String> {
+    let recipes = recipe::load_embedded(pco_core::embedded::RECIPES).map_err(|e| e.to_string())?;
+    let host = guard::windows::host().ok();
+    let hw = pco_core::hw::windows::detect();
+    let mut journal = journal()?;
+    let mut registry = ReadOnlyRegistry(WindowsRegistry::system());
+    let mut services = WindowsServices::read_only();
+    let mut power = pco_core::backend::WindowsPower::read_only();
+    let mut apps = pco_core::backend::WindowsAppx::read_only();
+    let system = host.as_ref().map_or(
+        SystemInfo {
+            build: 0,
+            edition: None,
+            form_factor: None,
+        },
+        SystemInfo::from,
+    );
+    let statuses = views::recipe_views(
+        &recipes,
+        views::lang_from(lang),
+        &mut registry,
+        &mut services,
+        &mut power,
+        &mut apps,
+        &mut journal,
+        system,
+    )
+    .into_iter()
+    .map(|v| {
+        let status = serde_json::to_value(&v.status)
+            .ok()
+            .map_or_else(String::new, |s| s.to_string());
+        (v.id, status)
+    })
+    .collect();
+    let series = journal.benchmark_series(None).unwrap_or_default();
+    let secrets = ["USERNAME", "COMPUTERNAME", "USERPROFILE", "USERDOMAIN"]
+        .iter()
+        .filter_map(|v| std::env::var(v).ok())
+        .collect();
+    let input = pco_core::report::ReportInput {
+        app_version: env!("CARGO_PKG_VERSION"),
+        host: host.as_ref(),
+        hw: Some(&hw),
+        statuses,
+        series,
+        secrets,
+    };
+    pco_core::report::build(&input, &journal).map_err(|e| e.to_string())
+}
+
+/// Settings › Export the log: builds the anonymized report, then asks where to save it.
+/// `None` if the user closed the dialog.
+#[tauri::command]
+async fn export_log(app: tauri::AppHandle, lang: String) -> Result<Option<String>, String> {
+    blocking(move || {
+        use tauri_plugin_dialog::DialogExt;
+        let text = build_report(&lang)?;
+        let Some(path) = app
+            .dialog()
+            .file()
+            .set_file_name("pc-optimizer-log.txt")
+            .add_filter("Text", &["txt"])
+            .blocking_save_file()
+        else {
+            return Ok(None);
+        };
+        let path = path.into_path().map_err(|e| e.to_string())?;
+        std::fs::write(&path, text).map_err(|e| e.to_string())?;
+        Ok(Some(path.display().to_string()))
+    })
+    .await
 }
 
 /// The tour version the user must accept (bumped when the disclaimer changes).
@@ -211,14 +330,12 @@ async fn run_helper(
         *slot = Some(Arc::clone(&cancel));
     }
     blocking(move || {
-        let helper = helper_path()?;
+        // Missing next to the app: most likely quarantined by an antivirus.
+        let helper = helper_path().map_err(|_| "antivirus".to_owned())?;
         pco_helper::pipe::run(&helper, &request, true, &cancel, &mut |event| {
             let _ = on_event.send(event.clone());
         })
-        .map_err(|e| match e {
-            pco_helper::pipe::RunError::Cancelled => "cancelled".to_owned(),
-            other => other.to_string(),
-        })
+        .map_err(helper_error)
     })
     .await
 }
@@ -315,6 +432,7 @@ fn restart(kind: String) -> Result<(), String> {
 
 fn main() {
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(HelperState::default())
         .invoke_handler(tauri::generate_handler![
             system_lang,
@@ -325,6 +443,8 @@ fn main() {
             home,
             cleanup_sizes,
             clean_user,
+            daily_backup,
+            export_log,
             startup_list,
             bench_history,
             run_helper,

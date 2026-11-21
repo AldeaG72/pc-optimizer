@@ -359,3 +359,13 @@ export interface StartupView {
 export async function startupList(): Promise<StartupView[]> {
   return isTauri() ? call<StartupView[]>("startup_list") : sampleStartup();
 }
+
+/** Builds the anonymized support log and asks where to save it; the path, or null if closed. */
+export async function exportLog(lang: Lang): Promise<string | null> {
+  return isTauri() ? call<string | null>("export_log", { lang }) : "pc-optimizer-log.txt";
+}
+
+/** Today's backup of the changed registry values, if the setting is on (once a day). */
+export async function dailyBackup(): Promise<string | null> {
+  return isTauri() ? call<string | null>("daily_backup") : null;
+}

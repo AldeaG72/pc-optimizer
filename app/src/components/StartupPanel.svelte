@@ -6,7 +6,7 @@
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import { onMount } from "svelte";
   import { runHelper, startupList, type StartupView } from "../lib/backend";
-  import { formatBytes } from "../lib/describe";
+  import { formatBytes, helperError } from "../lib/describe";
   import { t, ui } from "../lib/state.svelte";
 
   let list = $state<StartupView[] | null>(null);
@@ -58,7 +58,7 @@
         }
       });
     } catch (e) {
-      problems.push(String(e) === "cancelled" ? t("app.startup.uac_no") : String(e));
+      problems.push(String(e) === "cancelled" ? t("app.startup.uac_no") : helperError(e));
     }
     message = problems.length ? problems.join(" ") : t("app.startup.done", { count: ok });
     wanted = {};

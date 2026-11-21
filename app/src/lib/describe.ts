@@ -62,3 +62,9 @@ export function formatBytes(bytes: number, lang: "ro" | "en"): string {
   }).format(value);
   return `${text} ${units[unit]}`;
 }
+
+/** The text for an error from `runHelper` (the UAC "No" is handled by each page). */
+export function helperError(e: unknown): string {
+  const message = String(e);
+  return message === "antivirus" ? t("app.antivirus") : t("app.helper_error", { message });
+}

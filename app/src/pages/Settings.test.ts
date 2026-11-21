@@ -74,3 +74,16 @@ describe("Settings", () => {
     expect(screen.getByText(/PresentMon/)).toBeTruthy();
   });
 });
+
+describe("Safety (3.13)", () => {
+  it("the daily backup switch is saved, and the log can be exported", async () => {
+    render(Settings);
+    const sw = await screen.findByRole("switch", { name: "Copie zilnică a registrului" });
+    expect(sw.getAttribute("aria-checked")).toBe("false");
+    await fireEvent.click(sw);
+    await waitFor(() => expect(memory.settings.dailyBackup).toBe(true));
+
+    await fireEvent.click(screen.getByRole("button", { name: "Exportă…" }));
+    expect(await screen.findByText("Salvat: pc-optimizer-log.txt")).toBeTruthy();
+  });
+});

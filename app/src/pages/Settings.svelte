@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { appVersion, benchForget, benchHistory, type Series } from "../lib/backend";
+  import { appVersion, benchForget, benchHistory, dailyBackup, exportLog, type Series } from "../lib/backend";
   import type { Lang } from "../lib/i18n";
   import { persist, prefs, t, ui, type Theme } from "../lib/state.svelte";
   import { catalog, clearPending, isApplied, loadCatalog, pending } from "../lib/tweaks.svelte";
@@ -34,6 +34,25 @@
   function toggleRestorePoint() {
     prefs.restorePoint = !prefs.restorePoint;
     void persist();
+  }
+
+  function toggleBackup() {
+    prefs.dailyBackup = !prefs.dailyBackup;
+    void persist();
+    if (prefs.dailyBackup) void dailyBackup().catch(() => {});
+  }
+
+  let exporting = $state(false);
+  let exported = $state<string | null>(null);
+  async function exportNow() {
+    exporting = true;
+    try {
+      const path = await exportLog(ui.lang);
+      if (path) exported = t("app.settings.export_done", { path });
+    } catch (e) {
+      exported = t("app.helper_error", { message: String(e) });
+    }
+    exporting = false;
   }
 
   function toggleAdvanced() {
@@ -105,6 +124,20 @@
             <div class="muted small">{t("app.settings.advanced_hint")}</div>
           </div>
           <button class="switch" class:on={prefs.showAdvanced} role="switch" aria-checked={prefs.showAdvanced} aria-label={t("app.settings.advanced")} onclick={toggleAdvanced}><span></span></button>
+        </div>
+        <div class="row top">
+          <div>
+            <div class="strong">{t("app.settings.daily_backup")}</div>
+            <div class="muted small">{t("app.settings.daily_backup_hint")}</div>
+          </div>
+          <button class="switch" class:on={prefs.dailyBackup} role="switch" aria-checked={prefs.dailyBackup} aria-label={t("app.settings.daily_backup")} onclick={toggleBackup}><span></span></button>
+        </div>
+        <div class="row top">
+          <div>
+            <div class="strong">{t("app.settings.export")}</div>
+            <div class="muted small">{exported ?? t("app.settings.export_hint")}</div>
+          </div>
+          <button class="btn small-btn" disabled={exporting} onclick={() => void exportNow()}>{t("app.settings.export_button")}</button>
         </div>
         {#if confirm === "advanced"}
           <div class="confirm" role="alertdialog" aria-label={t("app.settings.advanced")}>
