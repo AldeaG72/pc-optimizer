@@ -161,6 +161,38 @@ jobs:
           }
           Write-Host "::notice title=Benchmark end to end::$(($runs | ForEach-Object Value) -join '; ')"
 
+      - name: Benchmark diagnostics (only when the benchmark failed)
+        if: failure()
+        shell: pwsh
+        run: |
+          function Note([string]$t, [string]$m) { Write-Host "::warning title=$t::$($m -replace '\r?\n', ' | ')" }
+          $pm = '.\vendor\presentmon\PresentMon-2.6.0-x64.exe'
+          $dwm = @(Get-Process dwm -ErrorAction SilentlyContinue).Count
+          $session = (Get-Process -Id $PID).SessionId
+          Note 'Desktop' "dwm processes: $dwm; this shell's session: $session; interactive: $([Environment]::UserInteractive)"
+          $out = Join-Path $env:RUNNER_TEMP 'demo-out.txt'
+          $err = Join-Path $env:RUNNER_TEMP 'demo-err.txt'
+          $demo = Start-Process -FilePath .\target\debug\pco-frame-demo.exe -ArgumentList 40 -PassThru `
+            -RedirectStandardOutput $out -RedirectStandardError $err
+          Start-Sleep -Seconds 3
+          Note 'Demo' "running after 3 s: $(-not $demo.HasExited); session $($demo.SessionId)"
+          foreach ($extra in @(@(), @('--no_track_display'), @('--no_track_display', '--no_track_gpu', '--no_track_input'))) {
+            $csv = Join-Path $env:RUNNER_TEMP "diag-$($extra.Count).csv"
+            $log = (& $pm --process_name pco-frame-demo.exe --output_file $csv --timed 6 --terminate_after_timed `
+              --no_console_stats --session_name PcoDiag --stop_existing_session @extra 2>&1) -join ' '
+            $code = $LASTEXITCODE
+            $lines = if (Test-Path $csv) { @(Get-Content $csv).Count } else { 'no file' }
+            Note "PresentMon $($extra -join ' ')" "exit $code; CSV lines: $lines; header: $(if (Test-Path $csv) { (Get-Content $csv -TotalCount 1) }); said: $log"
+          }
+          # All processes, no filter: does PresentMon see any presents at all?
+          $csv = Join-Path $env:RUNNER_TEMP 'diag-all.csv'
+          $log = (& $pm --output_file $csv --timed 6 --terminate_after_timed --no_console_stats `
+            --session_name PcoDiag --stop_existing_session 2>&1) -join ' '
+          $apps = if (Test-Path $csv) { (Import-Csv $csv | Group-Object Application | ForEach-Object { "$($_.Name)=$($_.Count)" }) -join ', ' } else { 'no file' }
+          Note 'PresentMon all processes' "exit $LASTEXITCODE; frames per app: $apps; said: $log"
+          if (-not $demo.HasExited) { Stop-Process -Id $demo.Id -Force }
+          Note 'Demo output' "$(Get-Content $out -Raw) / $(Get-Content $err -Raw)"
+
       - name: Remove the throwaway service
         if: always()
         shell: pwsh

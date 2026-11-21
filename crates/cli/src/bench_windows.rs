@@ -122,19 +122,24 @@ impl BenchDriver for WindowsBench {
             std::process::id(),
             self.captures
         ));
+        let log = csv.with_extension("log");
         let _ = std::fs::remove_file(&csv);
+        // PresentMon's own messages go to a file (not a pipe: it cannot fill up and block),
+        // so a failed capture can say why.
+        let log_file = std::fs::File::create(&log).map_err(|e| e.to_string())?;
+        let log_err = log_file.try_clone().map_err(|e| e.to_string())?;
         let mut child = Command::new(&exe)
             .args(presentmon::arguments(process, &csv, seconds))
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stdout(log_file)
+            .stderr(log_err)
             .spawn()
             .map_err(|e| format!("cannot start PresentMon: {e}"))?;
         // PresentMon stops by itself (--timed); give it a margin, then stop it.
         let deadline = Instant::now() + Duration::from_secs(u64::from(seconds) + 30);
-        loop {
+        let status = loop {
             match child.try_wait() {
-                Ok(Some(_)) => break,
+                Ok(Some(status)) => break status,
                 Ok(None) if Instant::now() < deadline => {
                     std::thread::sleep(Duration::from_millis(250))
                 }
@@ -145,9 +150,19 @@ impl BenchDriver for WindowsBench {
                 }
                 Err(e) => return Err(e.to_string()),
             }
-        }
-        let text = std::fs::read_to_string(&csv)
-            .map_err(|_| "no frames were captured (was the game running and in focus?)".to_owned());
+        };
+        let said = std::fs::read_to_string(&log).unwrap_or_default();
+        let _ = std::fs::remove_file(&log);
+        let text = std::fs::read_to_string(&csv).map_err(|_| {
+            let mut why = "no frames were captured (was the game running and in focus?)".to_owned();
+            let said: String = said.split_whitespace().collect::<Vec<_>>().join(" ");
+            if !status.success() || !said.is_empty() {
+                let skip = said.chars().count().saturating_sub(300);
+                let tail: String = said.chars().skip(skip).collect();
+                why.push_str(&format!(" [PresentMon {status}: {tail}]"));
+            }
+            why
+        });
         let _ = std::fs::remove_file(&csv);
         text
     }
