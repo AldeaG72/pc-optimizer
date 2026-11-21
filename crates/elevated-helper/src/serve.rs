@@ -281,7 +281,8 @@ fn block(b: &Blocked) -> BlockReason {
     }
 }
 
-fn not_applicable(n: engine::NotApplicable) -> NotApplicableReason {
+/// The reason a recipe does not apply, as sent to the app.
+pub fn not_applicable(n: engine::NotApplicable) -> NotApplicableReason {
     match n {
         engine::NotApplicable::ServiceMissing { name } => {
             NotApplicableReason::ServiceMissing { name }

@@ -32,7 +32,7 @@ pub enum Lang {
     En,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, serde::Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Category {
     Windows,
@@ -50,7 +50,9 @@ pub enum Category {
     Advanced,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Deserialize, serde::Serialize,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum Risk {
     Safe,
@@ -58,14 +60,14 @@ pub enum Risk {
     Advanced,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Profile {
     Recommended,
     Laptop,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RequiresRestart {
     None,

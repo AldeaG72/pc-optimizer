@@ -165,6 +165,40 @@ pub trait ServiceBackend {
     fn set(&mut self, name: &str, state: ServiceState) -> Result<(), BackendError>;
 }
 
+/// Any registry backend with every change refused: the app reads the real registry with
+/// this, so only the elevated helper can ever write.
+pub struct ReadOnlyRegistry<R>(pub R);
+
+impl<R: RegistryBackend> RegistryBackend for ReadOnlyRegistry<R> {
+    fn read(&self, hive: Hive, key: &str, value: &str) -> Result<RegRead, BackendError> {
+        self.0.read(hive, key, value)
+    }
+
+    fn write(
+        &mut self,
+        hive: Hive,
+        key: &str,
+        value: &str,
+        _data: &RegData,
+    ) -> Result<Vec<String>, BackendError> {
+        Err(BackendError::ReadOnly {
+            target: reg_target(hive, key, value),
+        })
+    }
+
+    fn delete_value(&mut self, hive: Hive, key: &str, value: &str) -> Result<bool, BackendError> {
+        Err(BackendError::ReadOnly {
+            target: reg_target(hive, key, value),
+        })
+    }
+
+    fn delete_key_if_empty(&mut self, hive: Hive, key: &str) -> Result<bool, BackendError> {
+        Err(BackendError::ReadOnly {
+            target: reg_target(hive, key, ""),
+        })
+    }
+}
+
 /// `HKCU\Some\Key\Value`, for messages.
 pub fn reg_target(hive: Hive, key: &str, value: &str) -> String {
     if value.is_empty() {
@@ -222,5 +256,31 @@ mod tests {
             bytes: vec![0, 0, 0, 0],
         };
         assert_eq!(binary.to_value(), None);
+    }
+
+    #[test]
+    fn read_only_registry_reads_but_never_writes() {
+        let inner = memory::MemoryRegistry::new().with_value(
+            Hive::CurrentUser,
+            "K",
+            "V",
+            RegData::from_value(&RegValue::Dword(1)),
+        );
+        let mut ro = ReadOnlyRegistry(inner);
+        assert!(matches!(
+            ro.read(Hive::CurrentUser, "K", "V"),
+            Ok(RegRead::Present(_))
+        ));
+        let data = RegData::from_value(&RegValue::Dword(2));
+        assert!(matches!(
+            ro.write(Hive::CurrentUser, "K", "V", &data),
+            Err(BackendError::ReadOnly { .. })
+        ));
+        assert!(ro.delete_value(Hive::CurrentUser, "K", "V").is_err());
+        assert!(ro.delete_key_if_empty(Hive::CurrentUser, "K").is_err());
+        assert_eq!(
+            ro.0.read(Hive::CurrentUser, "K", "V").unwrap(),
+            RegRead::Present(RegData::from_value(&RegValue::Dword(1)))
+        );
     }
 }
