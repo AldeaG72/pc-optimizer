@@ -40,20 +40,24 @@ Etapa are patru părți. Fiecare se termină cu CI verde și se unește separat 
 
 ## Partea B — Ecranele
 
-- [ ] **3.5 Turul de la prima pornire**: 4 ecrane (limbă; ce face / ce nu face; totul se poate anula; recomandarea de
+- [x] **3.5 Turul de la prima pornire**: 4 ecrane (limbă; ce face / ce nu face; totul se poate anula; recomandarea de
   benchmark + declinarea răspunderii cu „Sunt de acord”, păstrată și în Despre).
-- [ ] **3.6 Acasă**: hardware-ul detectat (listă compactă), problemele de sănătate ca și carduri cu „Rezolvă” (deschide
+- [x] **3.6 Acasă**: hardware-ul detectat (listă compactă), problemele de sănătate ca și carduri cu „Rezolvă” (deschide
   rețeta potrivită sau explicația), rezumatul tweak-urilor, alegerea monitorului pe care joci (când sunt mai multe).
-- [ ] **3.7 Tweak-uri**: categorii, căutare, nivel de risc, impact estimat, ce poate strica, panou lateral cu detaliile
+- [x] **3.7 Tweak-uri**: categorii, căutare, nivel de risc, impact estimat, ce poate strica, panou lateral cu detaliile
   tehnice și sursele, comutator albastru când e aplicat, eticheta „modificat în afara aplicației” (și întrebarea
   „Le reaplic?” după un update Windows care le-a resetat). Butoanele „Recomandate” (pe categorie și global), cu profil
   Desktop / Laptop după tipul PC-ului.
-- [ ] **3.8 Aplicare**: bifele se adună → „Aplică tot” (UAC doar acum) → listă live cu bifă/eroare pe fiecare tweak →
+- [x] **3.8 Aplicare**: bifele se adună → „Aplică tot” (UAC doar acum) → listă live cu bifă/eroare pe fiecare tweak →
   erorile la final → restart propus dacă e nevoie. Benchmark-ul „Înainte / După” în același flux (jocurile detectate
   + adăugare manuală a unui .exe), cu propunerea de anulare dacă FPS-ul scade.
-- [ ] **3.9 Setări**: limbă, temă, „Afișează tweak-urile avansate” (avertisment + confirmare), punct de restaurare
+- [x] **3.9 Setări**: limbă, temă, „Afișează tweak-urile avansate” (avertisment + confirmare), punct de restaurare
   opțional înainte de aplicare, istoricul benchmark (listă + ștergere), „Anulează tot”, Despre (licențe, PresentMon,
   linkul spre `CE-NU-FACEM.md`).
+  *(Partea B, 2026-11-21: setările stau în `settings.json` lângă jurnal. Benchmark-ul din aplicație: jocul pornit prin
+  launcher, apoi helper-ul măsoară, fiecare rulare pornită cu Ctrl+Shift+F10; testat cap-coadă în CI cu tasta simulată.
+  Punctul de restaurare: creat de helper înainte de prima schimbare; dacă Windows nu-l face, tweak-urile se aplică oricum
+  și motivul se afișează. Copia zilnică și Depanarea rămân pentru 3.13–3.14.)*
 
 ## Partea C — Catalogul de tweak-uri
 
