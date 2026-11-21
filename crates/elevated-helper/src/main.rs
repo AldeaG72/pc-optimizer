@@ -371,31 +371,6 @@ mod bench_driver {
 mod real {
     use std::process::ExitCode;
 
-    /// A Windows restore point, with Windows' own command (System Restore must be on).
-    /// `Ok(Some(why))` when Windows skips it (one was already made in the last 24 hours).
-    fn create_restore_point() -> Result<Option<String>, String> {
-        let powershell = std::env::var_os("SystemRoot")
-            .map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from)
-            .join(r"System32\WindowsPowerShell\v1.0\powershell.exe");
-        let script = "$ErrorActionPreference='Stop'; \
-            Checkpoint-Computer -Description 'PC Optimizer' -RestorePointType MODIFY_SETTINGS \
-            -WarningVariable w -WarningAction SilentlyContinue; \
-            if ($w) { Write-Output $w[0].Message; exit 3 }";
-        let out = std::process::Command::new(powershell)
-            .args(["-NoProfile", "-NonInteractive", "-Command", script])
-            .output()
-            .map_err(|e| e.to_string())?;
-        let text = |b: &[u8]| String::from_utf8_lossy(b).trim().to_owned();
-        match out.status.code() {
-            Some(0) => Ok(None),
-            Some(3) => Ok(Some(text(&out.stdout))),
-            _ => Err(match text(&out.stderr) {
-                e if e.is_empty() => text(&out.stdout),
-                e => e,
-            }),
-        }
-    }
-
     pub fn main() -> ExitCode {
         eprintln!("pco-helper runs on Windows only");
         ExitCode::from(64)
