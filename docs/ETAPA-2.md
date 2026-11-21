@@ -44,8 +44,10 @@ Jocurile fără o hartă fixă de test (VALORANT, League of Legends) apar cu „
   - **în CI, pe Windows**: o aplicație mică de test care desenează cadre, măsurată de PresentMon cap-coadă.
     *(`crates/frame-demo`, ~100 cadre/s. Prima rulare verde, 2026-11-21: 4 rulări cu FPS mediu ~96 și 1% low
     65,8–91,7 — plauzibile; „înainte → după” afișat.)*
-- [ ] **2.8 Testul proprietarului**: pe laptopul tău nu e niciun joc dintre cele 6, așa că măsori o pagină web cu
+- [x] **2.8 Testul proprietarului**: pe laptopul tău nu e niciun joc dintre cele 6, așa că măsori o pagină web cu
   animație 3D (`pco bench run msedge.exe --before --runs 1`) — câteva minute. Măsurarea doar citește, deci e permisă.
+  *(2026-11-21, laptop cu grafică Intel, WebGL Aquarium în Edge: FPS mediu 59,7, 1% low 29,8, frametime 16,8 ms —
+  plafonat la 60 Hz, cu cadre ocazionale de 33 ms. Proprietarul: „Da, e rezonabil”.)*
 
 ## Criterii de ieșire
 
