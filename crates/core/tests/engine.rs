@@ -364,6 +364,9 @@ impl RegistryBackend for LyingRegistry {
     fn subkeys(&self, h: Hive, k: &str) -> Result<Vec<String>, BackendError> {
         self.0.subkeys(h, k)
     }
+    fn values(&self, h: Hive, k: &str) -> Result<Vec<String>, BackendError> {
+        self.0.values(h, k)
+    }
 }
 
 #[test]
@@ -567,6 +570,9 @@ impl RegistryBackend for CrashingRegistry {
     }
     fn subkeys(&self, h: Hive, k: &str) -> Result<Vec<String>, BackendError> {
         self.inner.subkeys(h, k)
+    }
+    fn values(&self, h: Hive, k: &str) -> Result<Vec<String>, BackendError> {
+        self.inner.values(h, k)
     }
 }
 

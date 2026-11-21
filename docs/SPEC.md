@@ -87,6 +87,7 @@ Decizii pentru Etapa 3 (2026-11-22):
 - **Aplicații preinstalate:** câte un comutator pe aplicație, niciuna în „Recomandate”; reinstalarea din același comutator.
 - **OneDrive:** doar oprit la pornire; nu se dezinstalează (reinstalarea ar cere internet).
 - **Amânarea update-urilor de funcții:** 180 de zile (doar Pro; update-urile de securitate neatinse).
+- **Aplicații la pornire (3.12):** impactul e o estimare după tip, dintr-o listă de programe cunoscute (mare / mediu / mic / necunoscut), plus mărimea programului; oprirea trece prin jurnal, deci „Anulează tot” și dezinstalarea le repornesc; doar programele clasice (registrul Run și folderul Startup), cele din Store se schimbă din Setări › Aplicații › Pornire.
 
 ### 4.3 Driver video (automat, cu undo)
 - **NVIDIA:** Low Latency Mode On (în jocurile cu Reflex, se recomandă Reflex din joc, cu prioritate) · Power management: Prefer maximum performance · Shader cache: Unlimited · Texture filtering: High performance.

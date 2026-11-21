@@ -372,6 +372,7 @@ fn convert_value(kind: RegKind, value: Value) -> Result<RegValue, String> {
             Err("kind is a number type, so the value must be a number without quotes".into())
         }
         (RegKind::Dword | RegKind::Qword, _) => Err("the value must be a whole number".into()),
+        (RegKind::Binary, _) => Err("binary values cannot be written by a recipe".into()),
     }
 }
 

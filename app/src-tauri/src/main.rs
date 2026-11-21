@@ -11,6 +11,7 @@ mod benchview;
 mod cleanview;
 mod home;
 mod settings;
+mod startupview;
 mod views;
 
 use std::path::PathBuf;
@@ -153,6 +154,16 @@ async fn clean_user(ids: Vec<String>) -> Result<Vec<cleanview::CleanResult>, Str
             recipe::load_embedded(pco_core::embedded::RECIPES).map_err(|e| e.to_string())?;
         let mut user = pco_core::cleanup::windows::WindowsCleanup::user();
         cleanview::clean_user(&recipes, &ids, &mut user)
+    })
+    .await
+}
+
+/// Programs that start with Windows, with their switches. Reads only.
+#[tauri::command]
+async fn startup_list() -> Result<Vec<startupview::StartupView>, String> {
+    blocking(move || {
+        let reg = ReadOnlyRegistry(WindowsRegistry::system());
+        startupview::views(&reg, &pco_core::startup::windows::folders()).map_err(|e| e.to_string())
     })
     .await
 }
@@ -314,6 +325,7 @@ fn main() {
             home,
             cleanup_sizes,
             clean_user,
+            startup_list,
             bench_history,
             run_helper,
             cancel_helper,

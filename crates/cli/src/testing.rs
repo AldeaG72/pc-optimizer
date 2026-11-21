@@ -81,6 +81,10 @@ impl<R: RegistryBackend> RegistryBackend for StopAfterChanges<R> {
     fn subkeys(&self, hive: Hive, key: &str) -> Result<Vec<String>, BackendError> {
         self.inner.subkeys(hive, key)
     }
+
+    fn values(&self, hive: Hive, key: &str) -> Result<Vec<String>, BackendError> {
+        self.inner.values(hive, key)
+    }
 }
 
 #[cfg(test)]

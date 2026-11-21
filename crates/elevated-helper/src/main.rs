@@ -254,6 +254,7 @@ mod real {
             power: &mut power,
             apps: &mut apps,
             cleanup: &mut cleanup,
+            startup_folders: pco_core::startup::windows::folders(),
             journal: &mut journal,
             host,
             running,

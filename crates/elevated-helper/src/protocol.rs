@@ -12,6 +12,7 @@
 //!           `{"v":1,"op":"undo","ids":["gaming.game-mode-on"]}`
 //!           `{"v":1,"op":"undo_all"}`
 //!           `{"v":1,"op":"clean","ids":["cleanup.windows-temp"]}`
+//!           `{"v":1,"op":"startup","changes":[{"id":"startup.user-run.1a2b3c4d","enable":false}]}`
 //!           `{"v":1,"op":"bench","target":"cs2","label":"before","runs":3,"duration":60,"warmup":10}`
 //! Events:   `{"event":"hello","version":1}`, then `started` / `result` per recipe, then `done`
 //!           (or a single `refused` / `blocked` / `error`).
@@ -48,6 +49,10 @@ pub enum Request {
     Clean {
         ids: Vec<String>,
     },
+    /// Turn startup programs on or off (`startup.*` IDs from the helper's own listing).
+    Startup {
+        changes: Vec<StartupChange>,
+    },
     /// Measure FPS: `after` false = before the tweaks.
     Bench {
         target: String,
@@ -68,6 +73,10 @@ impl Request {
             Request::Undo { ids } => serde_json::json!({"v": VERSION, "op": "undo", "ids": ids}),
             Request::UndoAll => serde_json::json!({"v": VERSION, "op": "undo_all"}),
             Request::Clean { ids } => serde_json::json!({"v": VERSION, "op": "clean", "ids": ids}),
+            Request::Startup { changes } => serde_json::json!({
+                "v": VERSION, "op": "startup",
+                "changes": changes.iter().map(|c| serde_json::json!({"id": c.id, "enable": c.enable})).collect::<Vec<_>>(),
+            }),
             Request::Bench {
                 target,
                 after,
@@ -326,6 +335,47 @@ fn parse_bench(map: &serde_json::Map<String, Value>) -> Result<Request, Refusal>
 
 /// Checks the shape of a request line. Whether the IDs are known is checked by the server,
 /// against the recipes built into it.
+/// One startup program to turn on or off.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StartupChange {
+    pub id: String,
+    pub enable: bool,
+}
+
+/// `changes`: 1..=MAX_IDS objects `{"id": "startup.…", "enable": bool}`, nothing else.
+fn parse_startup(map: &serde_json::Map<String, Value>) -> Result<Request, Refusal> {
+    let Some(Value::Array(items)) = map.get("changes") else {
+        return Err(Refusal::BadShape("changes".into()));
+    };
+    if items.is_empty() || items.len() > MAX_IDS {
+        return Err(Refusal::BadShape("changes".into()));
+    }
+    let mut changes: Vec<StartupChange> = Vec::with_capacity(items.len());
+    for item in items {
+        let Value::Object(change) = item else {
+            return Err(Refusal::BadShape("changes".into()));
+        };
+        if change.len() != 2 {
+            return Err(Refusal::BadShape("changes".into()));
+        }
+        let (Some(Value::String(id)), Some(Value::Bool(enable))) =
+            (change.get("id"), change.get("enable"))
+        else {
+            return Err(Refusal::BadShape("changes".into()));
+        };
+        if !is_recipe_id(id) || !id.starts_with("startup.") {
+            return Err(Refusal::BadId(id.chars().take(MAX_ID_LEN).collect()));
+        }
+        if !changes.iter().any(|c| &c.id == id) {
+            changes.push(StartupChange {
+                id: id.clone(),
+                enable: *enable,
+            });
+        }
+    }
+    Ok(Request::Startup { changes })
+}
+
 pub fn parse_request(line: &str) -> Result<Request, Refusal> {
     if line.len() > MAX_REQUEST {
         return Err(Refusal::TooLarge);
@@ -346,6 +396,7 @@ pub fn parse_request(line: &str) -> Result<Request, Refusal> {
     let allowed: &[&str] = match op {
         "apply" => &["v", "op", "ids", "restore_point"],
         "undo" | "clean" => &["v", "op", "ids"],
+        "startup" => &["v", "op", "changes"],
         "undo_all" => &["v", "op"],
         "bench" => &["v", "op", "target", "label", "runs", "duration", "warmup"],
         _ => return Err(Refusal::BadShape("op".into())),
@@ -358,6 +409,9 @@ pub fn parse_request(line: &str) -> Result<Request, Refusal> {
     }
     if op == "bench" {
         return parse_bench(&map);
+    }
+    if op == "startup" {
+        return parse_startup(&map);
     }
     let Some(Value::Array(items)) = map.get("ids") else {
         return Err(Refusal::BadShape("ids".into()));

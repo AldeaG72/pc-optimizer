@@ -9,6 +9,7 @@ import {
   sampleCancel,
   sampleCleanSizes,
   sampleCleanUser,
+  sampleStartup,
   sampleEvents,
   sampleForget,
   sampleGames,
@@ -116,6 +117,7 @@ export type HelperRequest =
   | { op: "undo"; ids: string[] }
   | { op: "undo_all" }
   | { op: "clean"; ids: string[] }
+  | { op: "startup"; changes: { id: string; enable: boolean }[] }
   | { op: "bench"; target: string; label: "before" | "after"; runs: number; duration: number; warmup: number };
 
 export interface Settings {
@@ -336,4 +338,24 @@ export async function cleanupSizes(): Promise<CleanSize[]> {
 /** Cleans the user's own places (no UAC); system folders go through `runHelper` ("clean"). */
 export async function cleanUser(ids: string[]): Promise<CleanResult[]> {
   return isTauri() ? call<CleanResult[]>("clean_user", { ids }) : sampleCleanUser(ids);
+}
+
+export interface StartupView {
+  id: string;
+  name: string;
+  command: string;
+  location: "user-run" | "machine-run" | "machine-run32" | "user-folder" | "common-folder";
+  enabled: boolean;
+  /** Turning it on or off shows the UAC prompt (an entry for every user). */
+  needsAdmin: boolean;
+  impact: "high" | "medium" | "low" | "unknown";
+  advice: "off" | "keep" | null;
+  /** `app.startup.what.<key>` when the program is known. */
+  what: string | null;
+  size: number | null;
+}
+
+/** Programs that start with Windows. Changes nothing. */
+export async function startupList(): Promise<StartupView[]> {
+  return isTauri() ? call<StartupView[]>("startup_list") : sampleStartup();
 }

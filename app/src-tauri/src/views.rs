@@ -96,6 +96,7 @@ fn reg_text(data: &RegData) -> String {
         Some(RegValue::Dword(n)) => n.to_string(),
         Some(RegValue::Qword(n)) => n.to_string(),
         Some(RegValue::String(s)) => format!("\"{s}\""),
+        Some(RegValue::Binary(b)) => format!("({} bytes)", b.len()),
         None => format!("({} bytes, type {})", data.bytes.len(), data.reg_type),
     }
 }
@@ -194,6 +195,13 @@ pub fn recipe_views(
         .collect()
 }
 
+/// One startup program to turn on or off, as the interface sends it.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct StartupChangeView {
+    pub id: String,
+    pub enable: bool,
+}
+
 /// What the interface may ask the helper for (checked again by the helper itself).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
@@ -210,6 +218,10 @@ pub enum HelperRequest {
     /// Cleanup recipes: the system folders (the app cleans the user's own itself).
     Clean {
         ids: Vec<String>,
+    },
+    /// Startup programs on or off.
+    Startup {
+        changes: Vec<StartupChangeView>,
     },
     Bench {
         target: String,
@@ -243,6 +255,19 @@ impl HelperRequest {
             HelperRequest::Undo { ids } => Request::Undo { ids: check(ids)? },
             HelperRequest::UndoAll => Request::UndoAll,
             HelperRequest::Clean { ids } => Request::Clean { ids: check(ids)? },
+            HelperRequest::Startup { changes } => {
+                let ids: Vec<String> = changes.iter().map(|c| c.id.clone()).collect();
+                check(&ids)?;
+                Request::Startup {
+                    changes: changes
+                        .iter()
+                        .map(|c| pco_helper::protocol::StartupChange {
+                            id: c.id.clone(),
+                            enable: c.enable,
+                        })
+                        .collect(),
+                }
+            }
             HelperRequest::Bench {
                 target,
                 label,

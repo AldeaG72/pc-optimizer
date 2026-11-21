@@ -53,7 +53,8 @@ Stack: Rust (workspace Cargo) + Tauri 2 pentru interfață (din Etapa 3). Interf
 crates/core      logica, fără UI: recipe/, engine/, journal/, actions/, health/, bench/, hw/
 crates/cli       `pco` — plan | apply | undo | status | list
 crates/elevated-helper   (Etapa 3) proces cu drepturi de admin, acceptă doar ID-uri de rețete
-                         (și benchmark-ul: nume de joc/.exe doar pentru PresentMon, fără schimbări)
+                         (și benchmark-ul: nume de joc/.exe doar pentru PresentMon, fără schimbări;
+                         programele de la pornire: ID-uri din propria lui listă)
 app/             (Etapa 3) Tauri 2 + UI
 recipes/         rețetele YAML + schema JSON
 ```

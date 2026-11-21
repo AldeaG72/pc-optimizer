@@ -34,6 +34,10 @@ fn value(t: &Texts, v: &RegValue) -> String {
         RegValue::Dword(n) => t.f("state.number", &[("value", n)]),
         RegValue::Qword(n) => t.f("state.number", &[("value", n)]),
         RegValue::String(s) => t.f("state.text", &[("value", s)]),
+        RegValue::Binary(b) => t.f(
+            "state.raw",
+            &[("type", &pco_core::backend::REG_BINARY), ("len", &b.len())],
+        ),
     }
 }
 
@@ -46,7 +50,7 @@ pub fn state(t: &Texts, s: &Snapshot) -> String {
                 Some(RegValue::Dword(v)) => t.f("state.number", &[("value", &v)]),
                 Some(RegValue::Qword(v)) => t.f("state.number", &[("value", &v)]),
                 Some(RegValue::String(v)) => t.f("state.text", &[("value", &v)]),
-                None => t.f(
+                Some(RegValue::Binary(_)) | None => t.f(
                     "state.raw",
                     &[("type", &data.reg_type), ("len", &data.bytes.len())],
                 ),

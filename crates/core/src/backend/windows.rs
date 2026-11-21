@@ -10,8 +10,8 @@ use windows::Win32::Foundation::{
     ERROR_NO_MORE_ITEMS, ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SUCCESS, WIN32_ERROR,
 };
 use windows::Win32::System::Registry::{
-    RegCloseKey, RegCreateKeyExW, RegDeleteKeyExW, RegDeleteValueW, RegEnumKeyExW, RegOpenKeyExW,
-    RegQueryInfoKeyW, RegQueryValueExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER,
+    RegCloseKey, RegCreateKeyExW, RegDeleteKeyExW, RegDeleteValueW, RegEnumKeyExW, RegEnumValueW,
+    RegOpenKeyExW, RegQueryInfoKeyW, RegQueryValueExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER,
     HKEY_LOCAL_MACHINE, KEY_ENUMERATE_SUB_KEYS, KEY_QUERY_VALUE, KEY_SET_VALUE, KEY_WOW64_64KEY,
     REG_CREATED_NEW_KEY, REG_CREATE_KEY_DISPOSITION, REG_OPTION_NON_VOLATILE, REG_SAM_FLAGS,
     REG_VALUE_TYPE,
@@ -338,6 +338,42 @@ impl RegistryBackend for WindowsRegistry {
                 }
                 ERROR_NO_MORE_ITEMS => break,
                 rc => return Err(os_error("list subkeys", reg_target(hive, key, ""), rc)),
+            }
+        }
+        Ok(names)
+    }
+
+    fn values(&self, hive: Hive, key: &str) -> Result<Vec<String>, BackendError> {
+        let Some(k) = open_key(hive, key, KEY_QUERY_VALUE)? else {
+            return Ok(Vec::new());
+        };
+        let mut names = Vec::new();
+        for index in 0u32.. {
+            // Value names are at most 16383 characters.
+            let mut buf = vec![0u16; 16384];
+            let mut len = buf.len() as u32;
+            // SAFETY: `buf` has `len` writable UTF-16 units; type and data are not requested.
+            let rc = unsafe {
+                RegEnumValueW(
+                    k.0,
+                    index,
+                    Some(PWSTR(buf.as_mut_ptr())),
+                    &mut len,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+            };
+            match rc {
+                ERROR_SUCCESS => {
+                    let name = String::from_utf16_lossy(&buf[..len as usize]);
+                    if !name.is_empty() {
+                        names.push(name);
+                    }
+                }
+                ERROR_NO_MORE_ITEMS => break,
+                rc => return Err(os_error("list values", reg_target(hive, key, ""), rc)),
             }
         }
         Ok(names)

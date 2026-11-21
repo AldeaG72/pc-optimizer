@@ -5,6 +5,7 @@
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import X from "@lucide/svelte/icons/x";
   import CleanupPanel from "../components/CleanupPanel.svelte";
+  import StartupPanel from "../components/StartupPanel.svelte";
   import type { Category, Recipe } from "../lib/backend";
   import { naText, stateText } from "../lib/describe";
   import { prefs, t, ui } from "../lib/state.svelte";
@@ -22,7 +23,7 @@
     toggle,
   } from "../lib/tweaks.svelte";
 
-  type View = Category | "recommended";
+  type View = Category | "recommended" | "startup";
   const ORDER: Category[] = [
     "power", "gaming", "input", "windows", "network", "audio",
     "debloat", "privacy", "cleanup", "services", "advanced",
@@ -64,13 +65,14 @@
         [r.name, r.description, r.id].some((s) => s.toLowerCase().includes(q)),
       );
     }
+    if (view === "startup") return [];
     return view === "recommended" ? recommendedList : visible.filter((r) => r.category === view);
   });
   const selected = $derived(selectedId ? visible.find((r) => r.id === selectedId) ?? null : null);
 
   const catKey = (c: View) => c.replace("-", "_");
   const count = (c: View) =>
-    c === "recommended" ? recommendedList.length : visible.filter((r) => r.category === c).length;
+    c === "startup" ? "" : c === "recommended" ? recommendedList.length : visible.filter((r) => r.category === c).length;
 
   function tag(r: Recipe): { key: string; tone: string } | null {
     if (pending.apply.includes(r.id)) return { key: "app.tag.apply", tone: "accent" };
@@ -112,7 +114,7 @@
     {:else}
       <div class="cols">
         <nav class="cats" aria-label={t("app.tweaks.categories")}>
-          {#each ["recommended" as View, ...categories] as c (c)}
+          {#each ["recommended" as View, ...categories, "startup" as View] as c (c)}
             <button class:on={!query && view === c} aria-current={!query && view === c ? "true" : undefined} onclick={() => { query = ""; view = c; }}>
               <span>{t(`app.cat.${catKey(c)}`)}</span>
               <span class="n">{count(c)}</span>
@@ -127,8 +129,8 @@
                 <h2>{t(`app.cat.${catKey(view)}`)}</h2>
                 <div class="muted small">{t(`app.catdesc.${catKey(view)}`)}</div>
               </div>
-              {#if view !== "cleanup"}
-                <button class="btn" title={t("app.tweaks.recommended_hint")} onclick={() => tickRecommended(view === "recommended" ? null : view)}>
+              {#if view !== "cleanup" && view !== "startup"}
+                <button class="btn" title={t("app.tweaks.recommended_hint")} onclick={() => tickRecommended(view === "recommended" || view === "startup" ? null : view)}>
                   <BadgeCheck size={15} aria-hidden="true" />
                   {t("app.tweaks.recommended")}
                 </button>
@@ -136,7 +138,9 @@
             </div>
           {/if}
 
-          {#if !query && view === "cleanup"}
+          {#if !query && view === "startup"}
+            <StartupPanel />
+          {:else if !query && view === "cleanup"}
             <CleanupPanel recipes={rows} onSelect={(id) => (selectedId = id)} />
           {:else if rows.length === 0}
             <div class="card note muted">{query ? t("app.tweaks.no_match", { query }) : t("app.tweaks.none")}</div>

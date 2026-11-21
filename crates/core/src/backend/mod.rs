@@ -25,6 +25,7 @@ use crate::recipe::{Hive, RegValue};
 
 /// Registry value types this crate encodes or decodes (winnt.h).
 pub const REG_SZ: u32 = 1;
+pub const REG_BINARY: u32 = 3;
 pub const REG_DWORD: u32 = 4;
 pub const REG_QWORD: u32 = 11;
 
@@ -55,6 +56,10 @@ impl RegData {
                     .flat_map(u16::to_le_bytes)
                     .collect(),
             },
+            RegValue::Binary(b) => Self {
+                reg_type: REG_BINARY,
+                bytes: b.clone(),
+            },
         }
     }
 
@@ -67,6 +72,7 @@ impl RegData {
             REG_QWORD => Some(RegValue::Qword(u64::from_le_bytes(
                 self.bytes.as_slice().try_into().ok()?,
             ))),
+            REG_BINARY => Some(RegValue::Binary(self.bytes.clone())),
             REG_SZ => {
                 let (pairs, rest) = self.bytes.as_chunks::<2>();
                 if !rest.is_empty() {
@@ -173,6 +179,9 @@ pub trait RegistryBackend {
 
     /// Names of the direct subkeys of `key` (empty if the key does not exist).
     fn subkeys(&self, hive: Hive, key: &str) -> Result<Vec<String>, BackendError>;
+
+    /// Names of the values in `key` (empty if the key does not exist).
+    fn values(&self, hive: Hive, key: &str) -> Result<Vec<String>, BackendError>;
 }
 
 /// The AC (plugged in) and DC (on battery) value of one power setting in one plan.
@@ -275,6 +284,10 @@ impl<R: RegistryBackend> RegistryBackend for ReadOnlyRegistry<R> {
     fn subkeys(&self, hive: Hive, key: &str) -> Result<Vec<String>, BackendError> {
         self.0.subkeys(hive, key)
     }
+
+    fn values(&self, hive: Hive, key: &str) -> Result<Vec<String>, BackendError> {
+        self.0.values(hive, key)
+    }
 }
 
 /// Backends for the kinds of change that only some callers need. A missing one makes
@@ -373,10 +386,15 @@ mod tests {
         };
         assert_eq!(short.to_value(), None);
         let binary = RegData {
-            reg_type: 3,
-            bytes: vec![0, 0, 0, 0],
+            reg_type: REG_BINARY,
+            bytes: vec![3, 0, 0, 0],
         };
-        assert_eq!(binary.to_value(), None);
+        assert_eq!(binary.to_value(), Some(RegValue::Binary(vec![3, 0, 0, 0])));
+        let expand = RegData {
+            reg_type: 2,
+            bytes: vec![0x41, 0, 0, 0],
+        };
+        assert_eq!(expand.to_value(), None);
     }
 
     #[test]

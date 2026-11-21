@@ -560,3 +560,60 @@ fn power_and_adapter_kinds_round_trip_on_the_runner() {
         println!("::notice title=Real kind {i}::{line}");
     }
 }
+
+/// A startup program turned off and on again through the engine, on a throwaway Run entry
+/// the test creates for the runner's user (and removes).
+#[test]
+#[ignore = "changes the runner's startup programs; runs only in GitHub Actions"]
+fn startup_switch_round_trips_on_the_runner() {
+    use pco_core::startup::{self, Location};
+    require_ci();
+    let host = guard::windows::host().unwrap();
+    let mut real = Real {
+        reg: WindowsRegistry::system(),
+        svc: WindowsServices::system(),
+        power: WindowsPower::system(),
+        apps: WindowsAppx::system(),
+    };
+    let run = r"Software\Microsoft\Windows\CurrentVersion\Run";
+    let name = "PcoCiStartup";
+    real.reg
+        .write(
+            Hive::CurrentUser,
+            run,
+            name,
+            &RegData::from_value(&RegValue::String(r"C:\Windows\System32\notepad.exe".into())),
+        )
+        .unwrap();
+    let (hive, approved) = Location::UserRun.approved();
+    let before = real.reg.read(hive, &approved, name).unwrap();
+
+    let entries = startup::list(&real.reg, &[]).unwrap();
+    let entry = entries
+        .iter()
+        .find(|e| e.name == name)
+        .expect("the throwaway entry is listed");
+    assert!(entry.enabled);
+    let mut journal = journal("startup");
+    let recipe = startup::recipe_for(entry, false);
+    let applied = real
+        .engine(&mut journal, SystemInfo::from(&host))
+        .apply(&[&recipe])
+        .unwrap()
+        .results
+        .remove(0)
+        .1;
+    assert!(
+        matches!(applied, ApplyOutcome::Applied { .. }),
+        "{applied:?}"
+    );
+    let listed = startup::list(&real.reg, &[]).unwrap();
+    assert!(!listed.iter().find(|e| e.name == name).unwrap().enabled);
+
+    real.engine(&mut journal, SystemInfo::from(&host))
+        .undo(&[&entry.id])
+        .unwrap();
+    assert_eq!(real.reg.read(hive, &approved, name).unwrap(), before);
+    real.reg.delete_value(Hive::CurrentUser, run, name).unwrap();
+    summary("\n### Startup programs\n\nThrowaway Run entry turned off (Task Manager's switch) and back on exactly: OK");
+}

@@ -153,6 +153,16 @@ impl RegistryBackend for MemoryRegistry {
         names.sort();
         Ok(names)
     }
+
+    fn values(&self, hive: Hive, key: &str) -> Result<Vec<String>, BackendError> {
+        let mut names: Vec<String> = self
+            .keys
+            .get(&(hive, key.to_lowercase()))
+            .map(|values| values.keys().filter(|n| !n.is_empty()).cloned().collect())
+            .unwrap_or_default();
+        names.sort();
+        Ok(names)
+    }
 }
 
 /// Simulated services.

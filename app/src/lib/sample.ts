@@ -11,6 +11,7 @@ import type {
   Outcome,
   Recipe,
   Series,
+  StartupView,
   Verdict,
 } from "./backend";
 
@@ -226,7 +227,8 @@ function sampleBenchEvents(request: Extract<HelperRequest, { op: "bench" }>): He
 
 export function sampleEvents(request: HelperRequest): HelperEvent[] {
   if (request.op === "bench") return sampleBenchEvents(request);
-  const ids = request.op === "undo_all" ? [] : request.ids;
+  const ids: string[] =
+    request.op === "undo_all" ? [] : request.op === "startup" ? request.changes.map((c) => c.id) : request.ids;
   const outcome = (): Outcome =>
     request.op === "clean"
       ? { code: "cleaned", freed_bytes: 268_435_456, deleted: 40, skipped: 1 }
@@ -263,4 +265,45 @@ export function sampleForget(): number {
   sampleBench.before = null;
   sampleBench.after = null;
   return n;
+}
+/** Sample startup programs (Steam on, OneDrive on, Windows Security). */
+export function sampleStartup(): StartupView[] {
+  return [
+    {
+      id: "startup.user-run.0a1b2c3d",
+      name: "OneDrive",
+      command: String.raw`"C:\Users\Ana\AppData\Local\Microsoft\OneDrive\OneDrive.exe" /background`,
+      location: "user-run",
+      enabled: true,
+      needsAdmin: false,
+      impact: "high",
+      advice: "off",
+      what: "onedrive",
+      size: 4_718_592,
+    },
+    {
+      id: "startup.machine-run.11223344",
+      name: "SecurityHealth",
+      command: String.raw`%windir%\system32\SecurityHealthSystray.exe`,
+      location: "machine-run",
+      enabled: true,
+      needsAdmin: true,
+      impact: "low",
+      advice: "keep",
+      what: "security",
+      size: 98_304,
+    },
+    {
+      id: "startup.user-run.55667788",
+      name: "Steam",
+      command: String.raw`"C:\Program Files (x86)\Steam\steam.exe" -silent`,
+      location: "user-run",
+      enabled: false,
+      needsAdmin: false,
+      impact: "high",
+      advice: "off",
+      what: "steam",
+      size: 4_194_304,
+    },
+  ];
 }

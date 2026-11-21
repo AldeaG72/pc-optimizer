@@ -12,9 +12,11 @@ use pco_core::guard::{
 };
 use pco_core::journal::{Entry, Journal};
 use pco_core::recipe::{Action, Hive, Recipe, RequiresRestart};
+use pco_core::startup;
 
 use crate::protocol::{
-    BlockReason, Event, NotApplicableReason, Outcome, Refusal, Request, Restart, MAX_ID_LEN,
+    BlockReason, Event, NotApplicableReason, Outcome, Refusal, Request, Restart, StartupChange,
+    MAX_ID_LEN,
 };
 
 /// Everything a request works with.
@@ -35,6 +37,8 @@ pub struct Env<'a> {
     pub restore_point: &'a mut dyn FnMut() -> Result<Option<String>, String>,
     /// System folders only (`C:\Windows\Temp`).
     pub cleanup: &'a mut dyn CleanupBackend,
+    /// The files in the Startup folders (this user's, everyone's), for startup requests.
+    pub startup_folders: Vec<(startup::Location, Vec<String>)>,
 }
 
 impl Env<'_> {
@@ -79,10 +83,13 @@ fn run(
         Request::Apply { ids, .. } | Request::Undo { ids } | Request::Clean { ids } => {
             // A cleanup id must name a cleanup recipe, and apply/undo ids must not.
             let clean = matches!(request, Request::Clean { .. });
-            if let Some(unknown) = ids
-                .iter()
-                .find(|id| env.recipe(id).is_none_or(|r| r.is_cleanup() != clean))
-            {
+            // Startup programs have no built-in recipe: they are undone from the journal
+            // (checked below like every other entry).
+            let journal_only =
+                |id: &str| matches!(request, Request::Undo { .. }) && id.starts_with("startup.");
+            if let Some(unknown) = ids.iter().find(|id| {
+                !journal_only(id) && env.recipe(id).is_none_or(|r| r.is_cleanup() != clean)
+            }) {
                 emit(Event::Refused {
                     reason: Refusal::UnknownRecipe(unknown.clone()),
                 });
@@ -91,6 +98,7 @@ fn run(
             ids.clone()
         }
         Request::UndoAll => env.journal.applied_recipe_ids()?,
+        Request::Startup { changes } => changes.iter().map(|c| c.id.clone()).collect(),
         // Runs in `bench::run_bench`, with its own guards.
         Request::Bench { .. } => {
             emit(Event::Error {
@@ -159,6 +167,10 @@ fn run(
             });
             return Ok(());
         }
+    }
+
+    if let Request::Startup { changes } = request {
+        return startup(env, changes, emit);
     }
 
     let undo = !matches!(request, Request::Apply { .. });
@@ -252,6 +264,63 @@ fn run(
     Ok(())
 }
 
+/// Turns startup programs on or off. The helper lists them itself and only acts on IDs from
+/// that listing; each change is the switch value Task Manager uses, through the journal.
+/// Turning back on something the app turned off is an undo (exact original state).
+fn startup(
+    env: &mut Env<'_>,
+    changes: &[StartupChange],
+    emit: &mut dyn FnMut(Event),
+) -> Result<(), engine::EngineError> {
+    let entries = startup::list(&*env.registry, &env.startup_folders)?;
+    let mut plan = Vec::new();
+    for change in changes {
+        let Some(entry) = entries.iter().find(|e| e.id == change.id) else {
+            emit(Event::Refused {
+                reason: Refusal::UnknownRecipe(change.id.clone()),
+            });
+            return Ok(());
+        };
+        plan.push((entry.clone(), change.enable));
+    }
+    if plan.iter().any(|(e, _)| e.location.needs_admin()) && !env.host.elevated {
+        emit(Event::Blocked {
+            reason: BlockReason::NeedsAdmin,
+        });
+        return Ok(());
+    }
+    for (entry, enable) in plan {
+        emit(Event::Started {
+            id: entry.id.clone(),
+        });
+        let by_app = !env.journal.applied_entries(&entry.id)?.is_empty();
+        let outcome = if enable && by_app {
+            let report = env.engine().undo(&[entry.id.as_str()])?;
+            report
+                .results
+                .into_iter()
+                .next()
+                .map_or(Outcome::NothingToUndo, |(_, o)| undo_outcome(o))
+        } else {
+            let recipe = startup::recipe_for(&entry, enable);
+            let report = env.engine().apply(&[&recipe])?;
+            report
+                .results
+                .into_iter()
+                .next()
+                .map_or(Outcome::AlreadyApplied, |(_, o)| apply_outcome(o))
+        };
+        emit(Event::Result {
+            id: entry.id,
+            outcome,
+        });
+    }
+    emit(Event::Done {
+        restart: Restart::None,
+    });
+    Ok(())
+}
+
 /// Built-in cleanup recipes, system folders only: the app cleans the user's own places
 /// itself, without administrator rights, so nothing elevated works in a user folder.
 fn clean(env: &mut Env<'_>, ids: &[String], emit: &mut dyn FnMut(Event)) {
@@ -299,13 +368,20 @@ fn clean(env: &mut Env<'_>, ids: &[String], emit: &mut dyn FnMut(Event)) {
 /// exactly that action's target (same hive, key and value, or the same service). Keys the
 /// engine created must be the action's key or one of its parents.
 fn trusted(entry: &Entry, recipes: &[Recipe]) -> bool {
-    let Some(recipe) = recipes.iter().find(|r| r.id == entry.recipe_id) else {
-        return false;
-    };
     let (Ok(previous), Ok(new)) = (
         entry.previous::<Snapshot>(),
         entry.target_state::<Snapshot>(),
     ) else {
+        return false;
+    };
+    // Startup programs: only a switch value in one of the StartupApproved keys.
+    if entry.recipe_id.starts_with("startup.") {
+        return [&previous, &new].iter().all(|s| {
+            matches!(s, Snapshot::Registry { hive, key, missing_keys, .. }
+                if startup::is_approved_target(*hive, key, missing_keys))
+        });
+    }
+    let Some(recipe) = recipes.iter().find(|r| r.id == entry.recipe_id) else {
         return false;
     };
     // Any action of that recipe: in undo sessions the index is the restore step, and one

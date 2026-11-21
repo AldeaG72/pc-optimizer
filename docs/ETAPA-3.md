@@ -87,8 +87,14 @@ Etapa are patru părți. Fiecare se termină cu CI verde și se unește separat 
   nu are o pagină oficială); cache-ul Windows Update (Microsoft cere oprirea serviciului întâi); OneDrive (doar oprit
   la pornire, în 3.12); sunet (doar recomandare, Etapa 4). Suspendarea USB e inclusă, dar nu în „Recomandate”:
   Microsoft recomandă s-o lași pornită dacă dispozitivele merg bine.)*
-- [ ] **3.12 Aplicațiile la pornire**: lista completă, impactul, ce face fiecare, recomandare; dezactivarea folosește
+- [x] **3.12 Aplicațiile la pornire**: lista completă, impactul, ce face fiecare, recomandare; dezactivarea folosește
   același mecanism ca Task Manager-ul, deci se poate anula.
+  *(2026-11-22: categoria „Pornire” din Tweak-uri: registrul Run (utilizator, toți utilizatorii, 32 de biți) și
+  folderele Startup. Impactul e o estimare dintr-o listă de programe cunoscute, plus mărimea programului (Windows nu
+  dă altor programe impactul măsurat de Task Manager). Oprirea scrie doar comutatorul din `StartupApproved`, ca Task
+  Manager; programul rămâne neatins. Trece prin jurnal, deci „Anulează tot” și dezinstalarea le repornesc. Helper-ul
+  primește doar ID-uri din propria lui listă și refuză un jurnal care ar ținti altceva decât comutatoarele. Aplicațiile
+  din Store: din Setări › Aplicații › Pornire. Testat în CI pe o intrare de probă.)*
 
 ## Partea D — Lansarea beta
 

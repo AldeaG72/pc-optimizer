@@ -74,6 +74,7 @@ impl World {
             power: &mut self.power,
             apps: &mut self.apps,
             cleanup: &mut self.cleanup,
+            startup_folders: Vec::new(),
             journal: &mut self.journal,
             host: self.host.clone(),
             running: self.running.clone(),
@@ -523,4 +524,124 @@ fn clean_requests_parse_with_ids_only() {
         })
     );
     assert!(parse_request(r#"{"v":1,"op":"clean","ids":["cleanup.x"],"path":"C:\\"}"#).is_err());
+}
+
+const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+const APPROVED_RUN: &str =
+    r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
+
+fn startup_change(id: &str, enable: bool) -> Request {
+    Request::Startup {
+        changes: vec![pco_helper::protocol::StartupChange {
+            id: id.into(),
+            enable,
+        }],
+    }
+}
+
+#[test]
+fn startup_program_off_then_on_restores_exactly_and_undo_all_too() {
+    use pco_core::startup::{entry_id, Location};
+    let mut w = World::new();
+    w.reg = w.reg.clone().with_value(
+        Hive::CurrentUser,
+        RUN_KEY,
+        "Steam",
+        RegData::from_value(&RegValue::String(r#""C:\Steam\steam.exe" -silent"#.into())),
+    );
+    let before = w.reg.clone();
+    let id = entry_id(Location::UserRun, "Steam");
+
+    let events = w.send(startup_change(&id, false));
+    assert!(
+        events.iter().any(|e| matches!(
+            e,
+            Event::Result {
+                outcome: Outcome::Applied { .. },
+                ..
+            }
+        )),
+        "{events:?}"
+    );
+    // Only the switch was written; the program's own entry is untouched.
+    let switch = w
+        .reg
+        .read(Hive::CurrentUser, APPROVED_RUN, "Steam")
+        .unwrap();
+    assert!(
+        matches!(&switch, RegRead::Present(d) if d.bytes[0] == 3),
+        "{switch:?}"
+    );
+    assert!(matches!(
+        w.reg.read(Hive::CurrentUser, RUN_KEY, "Steam").unwrap(),
+        RegRead::Present(_)
+    ));
+
+    // On again: the app's change is undone, the registry is exactly as before.
+    w.send(startup_change(&id, true));
+    assert!(w.reg.same_contents(&before));
+
+    // Off again, then "Undo all" restores it too.
+    w.send(startup_change(&id, false));
+    let events = w.send(Request::UndoAll);
+    assert!(
+        events.iter().any(|e| matches!(
+            e,
+            Event::Result {
+                outcome: Outcome::Undone { .. },
+                ..
+            }
+        )),
+        "{events:?}"
+    );
+    assert!(w.reg.same_contents(&before));
+}
+
+#[test]
+fn startup_ids_must_come_from_the_helpers_own_listing() {
+    let mut w = World::new();
+    let events = w.send(startup_change("startup.user-run.deadbeef", false));
+    assert!(matches!(
+        events.last(),
+        Some(Event::Refused {
+            reason: Refusal::UnknownRecipe(_)
+        })
+    ));
+    // A startup id cannot be applied as a recipe either.
+    let events = w.send(apply(&["startup.user-run.deadbeef"]));
+    assert!(matches!(
+        events.last(),
+        Some(Event::Refused {
+            reason: Refusal::UnknownRecipe(_)
+        })
+    ));
+    // Only `startup.` ids, with id + enable and nothing else.
+    for bad in [
+        r#"{"v":1,"op":"startup","changes":[{"id":"gaming.game-mode-on","enable":false}]}"#,
+        r#"{"v":1,"op":"startup","changes":[{"id":"startup.user-run.1","enable":"no"}]}"#,
+        r#"{"v":1,"op":"startup","changes":[{"id":"startup.user-run.1","enable":true,"command":"x"}]}"#,
+        r#"{"v":1,"op":"startup","changes":[]}"#,
+    ] {
+        assert!(parse_request(bad).is_err(), "{bad}");
+    }
+}
+
+#[test]
+fn a_startup_entry_edited_to_point_elsewhere_is_refused() {
+    let mut w = World::new();
+    // A "startup" journal entry aimed at a Run key (it would rewrite the program's command).
+    pending_entry(
+        &mut w,
+        "startup.user-run.12345678",
+        "HKCU",
+        RUN_KEY,
+        "Steam",
+    );
+    let events = w.send(Request::UndoAll);
+    assert!(matches!(
+        events.last(),
+        Some(Event::Blocked {
+            reason: BlockReason::JournalUntrusted { .. }
+        })
+    ));
 }

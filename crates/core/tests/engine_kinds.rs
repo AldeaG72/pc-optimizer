@@ -327,6 +327,9 @@ impl RegistryBackend for CrashOnSecondWrite {
     fn subkeys(&self, h: Hive, k: &str) -> Result<Vec<String>, pco_core::backend::BackendError> {
         self.inner.subkeys(h, k)
     }
+    fn values(&self, h: Hive, k: &str) -> Result<Vec<String>, pco_core::backend::BackendError> {
+        self.inner.values(h, k)
+    }
 }
 
 #[test]

@@ -142,6 +142,9 @@ pub enum RegKind {
     Dword,
     Qword,
     String,
+    /// Only written by the app itself (startup apps), never by a recipe.
+    #[serde(skip_deserializing)]
+    Binary,
 }
 
 /// A typed registry value.
@@ -150,6 +153,7 @@ pub enum RegValue {
     Dword(u32),
     Qword(u64),
     String(String),
+    Binary(Vec<u8>),
 }
 
 impl RegValue {
@@ -158,6 +162,7 @@ impl RegValue {
             RegValue::Dword(_) => RegKind::Dword,
             RegValue::Qword(_) => RegKind::Qword,
             RegValue::String(_) => RegKind::String,
+            RegValue::Binary(_) => RegKind::Binary,
         }
     }
 }
