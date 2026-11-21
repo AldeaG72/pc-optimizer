@@ -82,6 +82,12 @@ Decizii pentru Etapa 1 (2026-11-21):
 - **Curățare:** fișiere temporare, resturi Windows Update, cache-uri de launchere, coșul de gunoi (cu confirmare).
 - **Avansat** (ascuns implicit): Memory Integrity/VBS oprit (avertisment de securitate), MSI mode pentru placa video, listă de servicii (toate afișate, modificabile doar cele dintr-o listă sigură).
 
+Decizii pentru Etapa 3 (2026-11-22):
+- **Copilot, Widgets, Recall:** oprite prin politicile oficiale Microsoft și incluse în „Recomandate” (Windows afișează „gestionat de organizația ta”).
+- **Aplicații preinstalate:** câte un comutator pe aplicație, niciuna în „Recomandate”; reinstalarea din același comutator.
+- **OneDrive:** doar oprit la pornire; nu se dezinstalează (reinstalarea ar cere internet).
+- **Amânarea update-urilor de funcții:** 180 de zile (doar Pro; update-urile de securitate neatinse).
+
 ### 4.3 Driver video (automat, cu undo)
 - **NVIDIA:** Low Latency Mode On (în jocurile cu Reflex, se recomandă Reflex din joc, cu prioritate) · Power management: Prefer maximum performance · Shader cache: Unlimited · Texture filtering: High performance.
 - **AMD:** Chill, Boost, AFMF oprite · Wait for Vertical Refresh: Always Off · Enhanced Sync oprit cu FreeSync · shader cache AMD Optimized · Image Sharpening oprit. **Anti-Lag nu se pornește din driver**; se recomandă Anti-Lag 2 din joc.
