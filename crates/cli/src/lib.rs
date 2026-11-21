@@ -15,7 +15,5 @@ pub mod health;
 pub mod i18n;
 pub mod testing;
 
-/// The recipes compiled into the program (see `build.rs`).
-pub mod embedded {
-    include!(concat!(env!("OUT_DIR"), "/recipes.rs"));
-}
+/// The recipes compiled into the program (built by `pco-core`).
+pub use pco_core::embedded;

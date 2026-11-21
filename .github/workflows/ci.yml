@@ -60,6 +60,9 @@ jobs:
       - name: Apply and undo every recipe for real
         run: cargo test -p pco-core --test real_recipes -- --ignored --test-threads=1 --nocapture
 
+      - name: Elevated helper over the real pipe (apply → undo)
+        run: cargo test -p pco-helper --test pipe -- --ignored --test-threads=1 --nocapture
+
       - name: Smoke-test the pco binary
         shell: pwsh
         run: |
