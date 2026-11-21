@@ -16,6 +16,7 @@ pub mod hw;
 pub mod i18n;
 pub mod journal;
 pub mod recipe;
+pub mod repair;
 pub mod report;
 pub mod startup;
 

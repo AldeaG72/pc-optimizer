@@ -39,6 +39,8 @@ pub struct Env<'a> {
     pub cleanup: &'a mut dyn CleanupBackend,
     /// The files in the Startup folders (this user's, everyone's), for startup requests.
     pub startup_folders: Vec<(startup::Location, Vec<String>)>,
+    /// Runs the fixed troubleshooting steps.
+    pub repair: &'a mut dyn pco_core::repair::StepRunner,
 }
 
 impl Env<'_> {
@@ -98,6 +100,7 @@ fn run(
             ids.clone()
         }
         Request::UndoAll => env.journal.applied_recipe_ids()?,
+        Request::Repair { .. } => Vec::new(),
         Request::Startup { changes } => changes.iter().map(|c| c.id.clone()).collect(),
         // Runs in `bench::run_bench`, with its own guards.
         Request::Bench { .. } => {
@@ -115,6 +118,10 @@ fn run(
 
     if matches!(request, Request::Clean { .. }) {
         clean(env, &ids, emit);
+        return Ok(());
+    }
+    if let Request::Repair { action } = request {
+        repair(env, *action, emit);
         return Ok(());
     }
 
@@ -323,6 +330,34 @@ fn startup(
 
 /// Built-in cleanup recipes, system folders only: the app cleans the user's own places
 /// itself, without administrator rights, so nothing elevated works in a user folder.
+/// One fixed troubleshooting action (the steps are in `pco_core::repair`).
+fn repair(env: &mut Env<'_>, action: pco_core::repair::RepairAction, emit: &mut dyn FnMut(Event)) {
+    if !env.host.elevated {
+        emit(Event::Blocked {
+            reason: BlockReason::NeedsAdmin,
+        });
+        return;
+    }
+    let id = action.id().to_owned();
+    emit(Event::Started { id: id.clone() });
+    let outcome = match pco_core::repair::run(action, &mut *env.repair) {
+        Ok(()) => Outcome::Repaired,
+        Err(error) => Outcome::Failed {
+            error,
+            rolled_back: false,
+        },
+    };
+    let done = matches!(outcome, Outcome::Repaired);
+    emit(Event::Result { id, outcome });
+    emit(Event::Done {
+        restart: if done && action.needs_reboot() {
+            Restart::Reboot
+        } else {
+            Restart::None
+        },
+    });
+}
+
 fn clean(env: &mut Env<'_>, ids: &[String], emit: &mut dyn FnMut(Event)) {
     if !env.host.elevated {
         emit(Event::Blocked {

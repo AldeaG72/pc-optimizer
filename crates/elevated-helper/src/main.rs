@@ -75,6 +75,36 @@ mod real {
         let _ = conn.write_line(&event.to_line());
     }
 
+    /// The troubleshooting steps, with the programs in System32 (paths from the Windows
+    /// folder, never from PATH) and folders below the Windows folder only.
+    struct Steps {
+        windows: PathBuf,
+    }
+
+    impl pco_core::repair::StepRunner for Steps {
+        fn run(&mut self, exe: &str, args: &[&str]) -> Result<i32, String> {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            let status = std::process::Command::new(self.windows.join("System32").join(exe))
+                .args(args)
+                .creation_flags(CREATE_NO_WINDOW)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .map_err(|e| e.to_string())?;
+            Ok(status.code().unwrap_or(-1))
+        }
+
+        fn remove_dir(&mut self, below_windows: &str) -> Result<(), String> {
+            let dir = self.windows.join(below_windows);
+            match std::fs::remove_dir_all(&dir) {
+                Ok(()) => Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e) => Err(e.to_string()),
+            }
+        }
+    }
+
     /// A Windows restore point, with Windows' own command (System Restore must be on).
     /// `Ok(Some(why))` when Windows skips it (one was already made in the last 24 hours).
     fn create_restore_point() -> Result<Option<String>, String> {
@@ -247,6 +277,10 @@ mod real {
         let mut power = WindowsPower::system();
         let mut apps = WindowsAppx::system();
         let mut cleanup = pco_core::cleanup::windows::WindowsCleanup::system();
+        let mut steps = Steps {
+            windows: std::env::var_os("SystemRoot")
+                .map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from),
+        };
         let mut restore_point = create_restore_point;
         let mut env = Env {
             registry: &mut registry,
@@ -255,6 +289,7 @@ mod real {
             apps: &mut apps,
             cleanup: &mut cleanup,
             startup_folders: pco_core::startup::windows::folders(),
+            repair: &mut steps,
             journal: &mut journal,
             host,
             running,

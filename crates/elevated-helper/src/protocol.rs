@@ -12,6 +12,7 @@
 //!           `{"v":1,"op":"undo","ids":["gaming.game-mode-on"]}`
 //!           `{"v":1,"op":"undo_all"}`
 //!           `{"v":1,"op":"clean","ids":["cleanup.windows-temp"]}`
+//!           `{"v":1,"op":"repair","action":"network_reset"}`
 //!           `{"v":1,"op":"startup","changes":[{"id":"startup.user-run.1a2b3c4d","enable":false}]}`
 //!           `{"v":1,"op":"bench","target":"cs2","label":"before","runs":3,"duration":60,"warmup":10}`
 //! Events:   `{"event":"hello","version":1}`, then `started` / `result` per recipe, then `done`
@@ -49,6 +50,10 @@ pub enum Request {
     Clean {
         ids: Vec<String>,
     },
+    /// One fixed troubleshooting action (Settings › Troubleshooting).
+    Repair {
+        action: pco_core::repair::RepairAction,
+    },
     /// Turn startup programs on or off (`startup.*` IDs from the helper's own listing).
     Startup {
         changes: Vec<StartupChange>,
@@ -73,6 +78,9 @@ impl Request {
             Request::Undo { ids } => serde_json::json!({"v": VERSION, "op": "undo", "ids": ids}),
             Request::UndoAll => serde_json::json!({"v": VERSION, "op": "undo_all"}),
             Request::Clean { ids } => serde_json::json!({"v": VERSION, "op": "clean", "ids": ids}),
+            Request::Repair { action } => {
+                serde_json::json!({"v": VERSION, "op": "repair", "action": action.name()})
+            }
             Request::Startup { changes } => serde_json::json!({
                 "v": VERSION, "op": "startup",
                 "changes": changes.iter().map(|c| serde_json::json!({"id": c.id, "enable": c.enable})).collect::<Vec<_>>(),
@@ -186,6 +194,8 @@ pub enum Outcome {
         restored: usize,
     },
     NothingToUndo,
+    /// A troubleshooting action finished without errors.
+    Repaired,
     /// A cleanup ran (it has no undo).
     Cleaned {
         freed_bytes: u64,
@@ -397,6 +407,7 @@ pub fn parse_request(line: &str) -> Result<Request, Refusal> {
         "apply" => &["v", "op", "ids", "restore_point"],
         "undo" | "clean" => &["v", "op", "ids"],
         "startup" => &["v", "op", "changes"],
+        "repair" => &["v", "op", "action"],
         "undo_all" => &["v", "op"],
         "bench" => &["v", "op", "target", "label", "runs", "duration", "warmup"],
         _ => return Err(Refusal::BadShape("op".into())),
@@ -412,6 +423,14 @@ pub fn parse_request(line: &str) -> Result<Request, Refusal> {
     }
     if op == "startup" {
         return parse_startup(&map);
+    }
+    if op == "repair" {
+        return match map.get("action") {
+            Some(Value::String(name)) => pco_core::repair::RepairAction::from_name(name)
+                .map(|action| Request::Repair { action })
+                .ok_or_else(|| Refusal::BadShape("action".into())),
+            _ => Err(Refusal::BadShape("action".into())),
+        };
     }
     let Some(Value::Array(items)) = map.get("ids") else {
         return Err(Refusal::BadShape("ids".into()));

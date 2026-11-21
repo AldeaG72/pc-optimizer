@@ -24,6 +24,7 @@ struct World {
     power: MemoryPower,
     apps: MemoryAppx,
     cleanup: MemoryCleanup,
+    repair: FakeSteps,
     journal: Journal,
     host: Host,
     running: Vec<String>,
@@ -53,6 +54,7 @@ impl World {
                 admin: true,
                 ..MemoryCleanup::default()
             },
+            repair: FakeSteps::default(),
             journal: Journal::open_in_memory().unwrap(),
             host: Host {
                 build: 26100,
@@ -75,6 +77,7 @@ impl World {
             apps: &mut self.apps,
             cleanup: &mut self.cleanup,
             startup_folders: Vec::new(),
+            repair: &mut self.repair,
             journal: &mut self.journal,
             host: self.host.clone(),
             running: self.running.clone(),
@@ -642,6 +645,73 @@ fn a_startup_entry_edited_to_point_elsewhere_is_refused() {
         events.last(),
         Some(Event::Blocked {
             reason: BlockReason::JournalUntrusted { .. }
+        })
+    ));
+}
+
+#[derive(Default)]
+struct FakeSteps {
+    log: Vec<String>,
+}
+
+impl pco_core::repair::StepRunner for FakeSteps {
+    fn run(&mut self, exe: &str, args: &[&str]) -> Result<i32, String> {
+        self.log.push(format!("{exe} {}", args.join(" ")));
+        Ok(0)
+    }
+    fn remove_dir(&mut self, below_windows: &str) -> Result<(), String> {
+        self.log.push(format!("rmdir {below_windows}"));
+        Ok(())
+    }
+}
+
+#[test]
+fn repairs_run_only_their_fixed_steps() {
+    use pco_core::repair::RepairAction;
+    let mut w = World::new();
+    let events = w.send(Request::Repair {
+        action: RepairAction::NetworkReset,
+    });
+    assert!(events.iter().any(|e| matches!(
+        e,
+        Event::Result {
+            outcome: Outcome::Repaired,
+            ..
+        }
+    )));
+    assert!(matches!(
+        events.last(),
+        Some(Event::Done {
+            restart: Restart::Reboot
+        })
+    ));
+    assert_eq!(
+        w.repair.log,
+        ["netsh.exe int ip reset", "netsh.exe winsock reset"]
+    );
+
+    assert_eq!(
+        parse_request(r#"{"v":1,"op":"repair","action":"update_repair"}"#),
+        Ok(Request::Repair {
+            action: RepairAction::UpdateRepair
+        })
+    );
+    for bad in [
+        r#"{"v":1,"op":"repair","action":"format_c"}"#,
+        r#"{"v":1,"op":"repair","action":"system_scan","args":"x"}"#,
+        r#"{"v":1,"op":"repair"}"#,
+    ] {
+        assert!(parse_request(bad).is_err(), "{bad}");
+    }
+
+    w.host.elevated = false;
+    let events = w.send(Request::Repair {
+        action: RepairAction::SystemScan,
+    });
+    assert!(matches!(
+        events.last(),
+        Some(Event::Blocked {
+            reason: BlockReason::NeedsAdmin
         })
     ));
 }
