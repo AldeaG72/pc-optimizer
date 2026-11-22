@@ -28,3 +28,4 @@ Desktop.ini
 
 # Local Claude Code settings
 /.claude/
+/app/src-tauri/binaries/

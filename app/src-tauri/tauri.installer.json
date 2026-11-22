@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "PC Optimizer contributors",
+    "copyright": "GPL-3.0-only",
+    "category": "Utility",
+    "shortDescription": "Documented, reversible Windows 11 settings for competitive games",
+    "externalBin": ["binaries/pco-helper", "binaries/pco"],
+    "resources": {
+      "../../vendor/presentmon/PresentMon-2.6.0-x64.exe": "presentmon/PresentMon-2.6.0-x64.exe",
+      "../../LICENSE": "LICENSE.txt"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "languages": ["English", "Romanian"],
+        "displayLanguageSelector": false,
+        "installerHooks": "./installer-hooks.nsh"
+      }
+    }
+  }
+}
