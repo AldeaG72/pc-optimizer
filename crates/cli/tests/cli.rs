@@ -270,7 +270,7 @@ fn built_in_recipes_match_the_repository() {
     let a: Vec<_> = embedded.iter().map(|r| (&r.id, &r.actions)).collect();
     let b: Vec<_> = on_disk.iter().map(|r| (&r.id, &r.actions)).collect();
     assert_eq!(a, b);
-    assert_eq!(embedded.len(), 39);
+    assert_eq!(embedded.len(), 40);
 }
 
 // --- arguments ----------------------------------------------------------------------------

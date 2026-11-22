@@ -120,7 +120,8 @@ Detectează jocul pornit; fiecare acțiune se bifează separat: închide aplica�
 
 Decizii pentru Etapa 4 (2026-11-22):
 - **Notificările în modul joc:** oprite prin setarea oficială Windows și repornite după joc.
-- **„Update-uri din fundal pe pauză”:** doar descărcările sunt limitate (Delivery Optimization) cât joci; update-urile de securitate nu se opresc.
+- **„Update-uri din fundal pe pauză”:** un tweak permanent (Delivery Optimization: 20% pentru descărcările din fundal), aplicat o dată și anulabil; update-urile de securitate nu se opresc, doar merg mai încet în fundal.
+- **Notificările în modul joc (revizuit):** setarea din registru cere restart, deci modul joc trimite la „Nu deranja” automat al Windows 11 pentru jocuri.
 - **Bufferbloat:** nu în v0.1 (ar cere o descărcare de pe un server care nu e al unui joc); doar ping și pierderi de pachete.
 
 ### 4.6 Recomandări din joc

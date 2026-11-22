@@ -1,0 +1,39 @@
+id: network.background-downloads-limited
+version: 1
+name:
+  ro: Descărcările din fundal ale Windows limitate
+  en: Windows background downloads limited
+description:
+  ro: Update-urile și aplicațiile din Store descărcate în fundal folosesc cel mult 20% din viteza conexiunii. Ce descarci tu, pe loc, merge la viteză normală.
+  en: Updates and Store apps downloaded in the background use at most 20% of the connection's speed. What you download yourself, right away, runs at normal speed.
+category: network
+risk: safe
+# Owner decision (2026-11-22): a permanent tweak instead of a game-time limit (that would
+# need administrator rights in the middle of a game). A choice, not in "Recommended".
+profiles: []
+impact:
+  ro: "Mediu pe conexiuni lente: mai puțin lag când Windows descarcă ceva în timp ce joci"
+  en: "Medium on slow connections: less lag when Windows downloads something while you play"
+why:
+  ro: Windows descarcă update-uri și aplicații din Store în fundal, oricând, și poate ocupa o mare parte din conexiune exact cât joci. Cu limita, descărcările merg mai încet, dar nu-ți mai umplu conexiunea.
+  en: Windows downloads updates and Store apps in the background at any time, and can take a large part of the connection exactly while you play. With the limit, downloads are slower but no longer fill your connection.
+breaks:
+  ro: Update-urile (inclusiv cele de securitate) se descarcă mai încet în fundal; tot vin, doar durează mai mult. Windows poate arăta „gestionat de organizația ta” la Optimizarea livrării.
+  en: Updates (security ones included) download more slowly in the background; they still arrive, they just take longer. Windows may show “managed by your organization” under Delivery Optimization.
+requires_restart: none
+platform:
+  min_build: 22000
+sources:
+  # DOPercentageMaxBackgroundBandwidth: percentage of available bandwidth for background downloads.
+  - https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-deliveryoptimization
+  - https://learn.microsoft.com/en-us/windows/deployment/do/waas-delivery-optimization-reference
+# Documented policy (DeliveryOptimization/DOPercentageMaxBackgroundBandwidth). Security updates
+# are slowed in the background, never stopped. Stays `false` until checked by beta testers.
+verified: false
+actions:
+  - type: registry
+    hive: HKLM
+    key: SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization
+    value: DOPercentageMaxBackgroundBandwidth
+    kind: dword
+    set: 20

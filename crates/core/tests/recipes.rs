@@ -351,6 +351,7 @@ fn all_repository_recipes_load() {
             "input.filter-keys-hotkey-off",
             "input.mouse-acceleration-off",
             "input.sticky-keys-hotkey-off",
+            "network.background-downloads-limited",
             "network.eee-off",
             "power.core-parking-off",
             "power.high-performance-plan",

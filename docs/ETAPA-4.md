@@ -10,7 +10,7 @@ beta-testeri (laptopul proprietarului are grafică Intel).
   „Pornește cu Windows” opțional din Setări (oprit implicit). Consum țintă în fundal: sub 30 MB RAM, CPU aproape zero.
 - [x] **4.2 Detectarea jocului**: jocurile suportate și cele adăugate de mână, după numele procesului; fără să
   atingă procesul jocului.
-- [ ] **4.3 Acțiunile modului joc**, fiecare bifată separat, toate anulate la ieșirea din joc (și după o pană, prin
+- [x] **4.3 Acțiunile modului joc**, fiecare bifată separat, toate anulate la ieșirea din joc (și după o pană, prin
   jurnal): închide aplicațiile alese și le redeschide după; planul de alimentare maxim; notificările oprite;
   update-urile din fundal pe pauză.
 - [x] **4.4 Cardul „Mod joc” pe Acasă** și notificarea scurtă la intrarea/ieșirea din joc.
@@ -59,10 +59,10 @@ doar pentru ce citește (ping, polling rate), fără aplicare.
 - Modul joc schimbă doar ce poate face aplicația fără drepturi de administrator: planul de alimentare activ și
   închiderea (politicoasă) a aplicațiilor alese, redeschise după joc. Starea originală se salvează într-un fișier
   **înainte** de orice schimbare; la pornire, dacă fișierul a rămas (pană, crash), totul revine.
-- **Notificările oprite (4.3):** setarea din registru are efect abia după un restart sau după repornirea unui serviciu
-  Windows, deci nu funcționează cât joci. Nu e implementată; Windows 11 are deja „Nu deranja” automat „când joci un
-  joc” (Setări › Sistem › Notificări). De decis cu proprietarul.
-- **Descărcările limitate (4.3):** limita Delivery Optimization cere drepturi de administrator; un UAC la intrarea în
-  joc nu e acceptabil. Nu e implementată; de decis cu proprietarul (de ex. o permisiune dată o singură dată din Setări).
+- **Notificările (4.3):** setarea din registru are efect abia după un restart, deci nu merge cât joci. Decizia
+  proprietarului: modul joc explică „Nu deranja” automat al Windows 11 „când joci un joc” și deschide setarea.
+- **Descărcările (4.3):** decizia proprietarului: un tweak permanent, `network.background-downloads-limited`
+  (Delivery Optimization, 20% pentru descărcările din fundal), aplicat o dată cu UAC și anulabil, în loc de o limită
+  doar cât joci (ar cere drepturi de administrator în timpul jocului).
 - Testat pe Windows real în CI: planul și Notepad închis/redeschis. „Pornește cu Windows” scrie doar intrarea
   aplicației în Run (utilizatorul curent); dezinstalarea o șterge.
