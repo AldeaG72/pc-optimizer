@@ -118,6 +118,11 @@ Decizie pentru Etapa 3 (2026-11-21):
 ### 4.5 Mod joc (în tray)
 Detectează jocul pornit; fiecare acțiune se bifează separat: închide aplicațiile alese (listă sugerată + bife; se redeschid după), plan de alimentare maxim, notificări oprite, update-uri din fundal pe pauză. La ieșirea din joc, totul revine. Consum țintă: sub 30 MB RAM, CPU aproape zero. Nu atinge procesul jocului.
 
+Decizii pentru Etapa 4 (2026-11-22):
+- **Notificările în modul joc:** oprite prin setarea oficială Windows și repornite după joc.
+- **„Update-uri din fundal pe pauză”:** doar descărcările sunt limitate (Delivery Optimization) cât joci; update-urile de securitate nu se opresc.
+- **Bufferbloat:** nu în v0.1 (ar cere o descărcare de pe un server care nu e al unui joc); doar ping și pierderi de pachete.
+
 ### 4.6 Recomandări din joc
 Tabel per joc (setare → valoare → de ce), pe 3 niveluri de PC detectate automat, bazate pe setările pro-playerilor din surse publice. Fișierele de config ale jocurilor **nu** se modifică. CS2: doar opțiuni de lansare cu efect dovedit + lista celor inutile. Fortnite: „Modul Performanță” recomandat tuturor.
 

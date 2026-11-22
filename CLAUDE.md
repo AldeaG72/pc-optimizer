@@ -1,7 +1,7 @@
 # CLAUDE.md — PC Optimizer (nume provizoriu; numele final se alege mai târziu)
 
 Acest fișier e citit automat de Claude Code la fiecare sesiune. Conține regulile proiectului.
-Specificația completă: `docs/SPEC.md`. Etapa curentă: `docs/ETAPA-3.md` (gata: `docs/ETAPA-0.md`, `docs/ETAPA-1.md`, `docs/ETAPA-2.md`). Ce refuzăm și de ce: `docs/CE-NU-FACEM.md`.
+Specificația completă: `docs/SPEC.md`. Etapa curentă: `docs/ETAPA-4.md` (gata: `docs/ETAPA-0.md` … `docs/ETAPA-3.md`). Ce refuzăm și de ce: `docs/CE-NU-FACEM.md`.
 
 ## Despre proiect
 
