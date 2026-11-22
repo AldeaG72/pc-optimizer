@@ -6,14 +6,15 @@ beta-testeri (laptopul proprietarului are grafică Intel).
 
 ## Partea A — Modul joc și iconița din tray (SPEC 4.5)
 
-- [ ] **4.1 Aplicația în fundal**: iconiță în tray (zona de lângă ceas), închiderea ferestrei o lasă în tray,
+- [x] **4.1 Aplicația în fundal**: iconiță în tray (zona de lângă ceas), închiderea ferestrei o lasă în tray,
   „Pornește cu Windows” opțional din Setări (oprit implicit). Consum țintă în fundal: sub 30 MB RAM, CPU aproape zero.
-- [ ] **4.2 Detectarea jocului**: jocurile suportate și cele adăugate de mână, după numele procesului; fără să
+- [x] **4.2 Detectarea jocului**: jocurile suportate și cele adăugate de mână, după numele procesului; fără să
   atingă procesul jocului.
 - [ ] **4.3 Acțiunile modului joc**, fiecare bifată separat, toate anulate la ieșirea din joc (și după o pană, prin
   jurnal): închide aplicațiile alese și le redeschide după; planul de alimentare maxim; notificările oprite;
   update-urile din fundal pe pauză.
-- [ ] **4.4 Cardul „Mod joc” pe Acasă** și notificarea scurtă la intrarea/ieșirea din joc.
+- [x] **4.4 Cardul „Mod joc” pe Acasă** și notificarea scurtă la intrarea/ieșirea din joc.
+  *(Cardul arată starea în timp real. Notificarea Windows la intrare/ieșire: nu încă.)*
 
 ## Partea B — Setările automate de driver video (SPEC 4.3)
 
@@ -52,3 +53,16 @@ doar pentru ce citește (ping, polling rate), fără aplicare.
 2. Setările de driver au undo exact (test pe backend simulat; confirmat la cel puțin un beta-tester NVIDIA și unul AMD).
 3. Singurele cereri de rețea sunt ping/testele către serverele jocurilor (verificat automat).
 4. v0.1 publicat.
+
+## Note Partea A (2026-11-22)
+
+- Modul joc schimbă doar ce poate face aplicația fără drepturi de administrator: planul de alimentare activ și
+  închiderea (politicoasă) a aplicațiilor alese, redeschise după joc. Starea originală se salvează într-un fișier
+  **înainte** de orice schimbare; la pornire, dacă fișierul a rămas (pană, crash), totul revine.
+- **Notificările oprite (4.3):** setarea din registru are efect abia după un restart sau după repornirea unui serviciu
+  Windows, deci nu funcționează cât joci. Nu e implementată; Windows 11 are deja „Nu deranja” automat „când joci un
+  joc” (Setări › Sistem › Notificări). De decis cu proprietarul.
+- **Descărcările limitate (4.3):** limita Delivery Optimization cere drepturi de administrator; un UAC la intrarea în
+  joc nu e acceptabil. Nu e implementată; de decis cu proprietarul (de ex. o permisiune dată o singură dată din Setări).
+- Testat pe Windows real în CI: planul și Notepad închis/redeschis. „Pornește cu Windows” scrie doar intrarea
+  aplicației în Run (utilizatorul curent); dezinstalarea o șterge.

@@ -131,6 +131,15 @@ export interface Settings {
   dailyBackup: boolean;
   showAdvanced: boolean;
   gameMonitor: string | null;
+  gameMode: GameModeSettings;
+  startWithWindows: boolean;
+}
+
+export interface GameModeSettings {
+  enabled: boolean;
+  closeApps: string[];
+  highPerformance: boolean;
+  extraGames: string[];
 }
 
 export const defaultSettings = (): Settings => ({
@@ -142,6 +151,8 @@ export const defaultSettings = (): Settings => ({
   dailyBackup: false,
   showAdvanced: false,
   gameMonitor: null,
+  gameMode: { enabled: false, closeApps: [], highPerformance: false, extraGames: [] },
+  startWithWindows: false,
 });
 
 /** Outside the app: kept in memory only (tests set it directly). */
@@ -388,4 +399,32 @@ export async function cleanShaderCache(): Promise<number> {
 /** Opens a Windows control panel. */
 export async function openPanel(kind: Panel): Promise<void> {
   if (isTauri()) await call<void>("open_panel", { kind });
+}
+
+export interface GameModeStatus {
+  enabled: boolean;
+  /** The game being played, while game mode is on. */
+  game: string | null;
+  error: string | null;
+}
+
+/** Game mode right now. */
+export async function gamemodeStatus(): Promise<GameModeStatus> {
+  return isTauri()
+    ? call<GameModeStatus>("gamemode_status")
+    : { enabled: memory.settings.gameMode.enabled, game: null, error: null };
+}
+
+/** Apps suggested in the "close while playing" list. */
+export async function gamemodeSuggested(): Promise<string[]> {
+  return isTauri()
+    ? call<string[]>("gamemode_suggested")
+    : ["onedrive.exe", "ms-teams.exe", "spotify.exe", "msedge.exe", "epicgameslauncher.exe", "eadesktop.exe"];
+}
+
+/** Called when game mode turns on or off. Returns a function that stops listening. */
+export async function onGameMode(handler: (s: GameModeStatus) => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<GameModeStatus>("gamemode", (e) => handler(e.payload));
 }

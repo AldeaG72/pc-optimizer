@@ -13,6 +13,8 @@
 !macro NSIS_HOOK_PREUNINSTALL
   ${GetOptions} $CMDLINE "/UPDATE" $R9
   IfErrors 0 pco_skip_undo
+  ; "Start with Windows" (the app's own entry, Settings).
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "PC Optimizer"
   DetailPrint "Undoing every change made by PC Optimizer..."
   nsExec::ExecToLog '"$INSTDIR\pco.exe" --lang en undo --all'
   Pop $R8

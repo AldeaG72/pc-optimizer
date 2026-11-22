@@ -108,3 +108,23 @@ describe("Troubleshooting (3.14)", () => {
     expect(await screen.findByText("Gata: am eliberat 700 MB.")).toBeTruthy();
   });
 });
+
+describe("Game mode (Stage 4)", () => {
+  it("turns on, picks an app to close and a game, and is saved", async () => {
+    render(Settings);
+    const sw = await screen.findByRole("switch", { name: "Mod joc" });
+    await fireEvent.click(sw);
+    await waitFor(() => expect(memory.settings.gameMode.enabled).toBe(true));
+
+    await fireEvent.click(await screen.findByRole("checkbox", { name: /onedrive\.exe/ }));
+    await waitFor(() => expect(memory.settings.gameMode.closeApps).toEqual(["onedrive.exe"]));
+
+    const input = screen.getByRole("textbox", { name: "Adaugă un joc" });
+    await fireEvent.input(input, { target: { value: "MyGame.exe" } });
+    await fireEvent.click(screen.getAllByRole("button", { name: "Adaugă" })[1] as HTMLElement);
+    await waitFor(() => expect(memory.settings.gameMode.extraGames).toEqual(["mygame.exe"]));
+
+    await fireEvent.click(screen.getByRole("switch", { name: "Pornește cu Windows" }));
+    await waitFor(() => expect(memory.settings.startWithWindows).toBe(true));
+  });
+});

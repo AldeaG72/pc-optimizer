@@ -1,4 +1,5 @@
 <script lang="ts">
+  import GameModePanel from "../components/GameModePanel.svelte";
   import TroubleshootPanel from "../components/TroubleshootPanel.svelte";
   import { appVersion, benchForget, benchHistory, dailyBackup, exportLog, type Series } from "../lib/backend";
   import type { Lang } from "../lib/i18n";
@@ -202,6 +203,8 @@
         {/if}
         <p class="muted small">{t("app.settings.history_note")}</p>
       </section>
+
+      <GameModePanel />
 
       <TroubleshootPanel />
 

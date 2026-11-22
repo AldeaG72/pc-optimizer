@@ -10,6 +10,9 @@ pub mod backup;
 pub mod bench;
 pub mod cleanup;
 pub mod engine;
+pub mod gamemode;
+#[cfg(windows)]
+pub mod gamemode_win;
 pub mod guard;
 pub mod health;
 pub mod hw;

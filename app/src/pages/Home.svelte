@@ -10,7 +10,8 @@
   import Monitor from "@lucide/svelte/icons/monitor";
   import OctagonAlert from "@lucide/svelte/icons/alert-octagon";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
-  import { home, recipes, type HomeView, type HwRow, type Recipe } from "../lib/backend";
+  import { gamemodeStatus, home, onGameMode, recipes, type GameModeStatus, type HomeView, type HwRow, type Recipe } from "../lib/backend";
+  import { onMount } from "svelte";
   import { openRecipe, persist, prefs, t, ui } from "../lib/state.svelte";
 
   const icons: Record<HwRow["kind"], typeof Cpu> = {
@@ -24,6 +25,18 @@
     games: Gamepad2,
   };
   const DISPLAY_CHECKS = new Set(["display_refresh", "display_resolution", "hdr"]);
+
+  let gm = $state<GameModeStatus>({ enabled: false, game: null, error: null });
+  onMount(() => {
+    let stop: (() => void) | null = null;
+    void gamemodeStatus().then((s) => (gm = s));
+    void onGameMode((s) => (gm = s)).then((f) => (stop = f));
+    return () => stop?.();
+  });
+  // The switch in Settings is the source of truth for on/off.
+  $effect(() => {
+    gm.enabled = prefs.gameMode.enabled;
+  });
 
   let view = $state<HomeView | null>(null);
   let list = $state<Recipe[]>([]);
@@ -179,6 +192,23 @@
             </div>
           </div>
           <button class="btn primary" onclick={seeRecommended}>{t("app.home.see_recommended")}</button>
+        </section>
+
+        <section class="card tweaks" aria-labelledby="gm">
+          <div class="tw-text">
+            <h2 id="gm">{t("app.gamemode.title")}</h2>
+            <div class="stats">
+              {#if !gm.enabled}
+                <span>{t("app.gamemode.off")}</span>
+              {:else if gm.game}
+                <span class="on-game"><Gamepad2 size={14} aria-hidden="true" /> {t("app.gamemode.active", { game: gm.game })}</span>
+              {:else}
+                <span>{t("app.gamemode.waiting")}</span>
+              {/if}
+              {#if gm.error}<span class="amber">{gm.error}</span>{/if}
+            </div>
+          </div>
+          <button class="btn" onclick={() => (ui.page = "settings")}>{t("app.gamemode.settings")}</button>
         </section>
       </div>
     </div>

@@ -9,6 +9,7 @@
 
 mod benchview;
 mod cleanview;
+mod gamemode;
 mod home;
 mod settings;
 mod startupview;
@@ -111,10 +112,35 @@ fn get_settings() -> Result<Settings, String> {
 }
 
 #[tauri::command]
-fn save_settings(settings: Settings) -> Result<(), String> {
+fn save_settings(
+    settings: Settings,
+    shared: tauri::State<'_, Arc<gamemode::Shared>>,
+) -> Result<(), String> {
     let dir = data_dir()?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    settings.save(&dir.join("settings.json"))
+    let path = dir.join("settings.json");
+    let before = Settings::load(&path);
+    if before.start_with_windows != settings.start_with_windows {
+        gamemode::set_autostart(settings.start_with_windows)?;
+    }
+    if let Ok(mut gm) = shared.settings.lock() {
+        *gm = settings.game_mode.clone();
+    }
+    settings.save(&path)
+}
+
+/// Game mode right now (Home card).
+#[tauri::command]
+fn gamemode_status(shared: tauri::State<'_, Arc<gamemode::Shared>>) -> gamemode::Status {
+    let mut status = shared.status.lock().map(|s| s.clone()).unwrap_or_default();
+    status.enabled = shared.settings.lock().map(|s| s.enabled).unwrap_or(false);
+    status
+}
+
+/// Apps suggested in the "close while playing" list.
+#[tauri::command]
+fn gamemode_suggested() -> Vec<&'static str> {
+    pco_core::gamemode::SUGGESTED.to_vec()
 }
 
 /// Today, in days since 1970-01-01.
@@ -474,14 +500,93 @@ fn restart(kind: String) -> Result<(), String> {
     }
 }
 
+/// Tray icon: open the window, or quit (game mode is turned off first).
+fn tray(app: &tauri::App, shared: Arc<gamemode::Shared>) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem};
+    use tauri::tray::TrayIconBuilder;
+    let open = MenuItem::with_id(app, "open", "PC Optimizer", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit / Ieșire", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &quit])?;
+    let mut builder = TrayIconBuilder::new()
+        .tooltip("PC Optimizer")
+        .menu(&menu)
+        .on_menu_event(move |app, event| match event.id.as_ref() {
+            "open" => show_main(app),
+            "quit" => {
+                if let Ok(dir) = data_dir() {
+                    gamemode::stop(&shared, &dir);
+                }
+                app.exit(0);
+            }
+            _ => {}
+        });
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    }
+    builder.build(app)?;
+    Ok(())
+}
+
+fn show_main(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
 fn main() {
+    let shared = Arc::new(gamemode::Shared::default());
+    let watch_shared = Arc::clone(&shared);
+    let tray_shared = Arc::clone(&shared);
+    let close_shared = Arc::clone(&shared);
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(HelperState::default())
+        .manage(shared)
+        .setup(move |app| {
+            use tauri::Manager;
+            if let Ok(dir) = data_dir() {
+                // A game mode left on by a crash or power cut is undone first.
+                let _ = gamemode::recover(&dir);
+                let settings = Settings::load(&dir.join("settings.json"));
+                if let Ok(mut gm) = watch_shared.settings.lock() {
+                    *gm = settings.game_mode;
+                }
+                gamemode::watch(app.handle().clone(), Arc::clone(&watch_shared), dir);
+            }
+            tray(app, tray_shared)?;
+            // Started with Windows: stay in the tray.
+            if std::env::args().any(|a| a == "--tray") {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.hide();
+                }
+            }
+            Ok(())
+        })
+        .on_window_event(move |window, event| {
+            // With game mode on, closing the window keeps the app in the tray.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let enabled = close_shared
+                    .settings
+                    .lock()
+                    .map(|s| s.enabled)
+                    .unwrap_or(false);
+                if enabled {
+                    api.prevent_close();
+                    let _ = window.hide();
+                } else if let Ok(dir) = data_dir() {
+                    gamemode::stop(&close_shared, &dir);
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             system_lang,
             get_settings,
             save_settings,
+            gamemode_status,
+            gamemode_suggested,
             tour_version,
             recipes,
             home,

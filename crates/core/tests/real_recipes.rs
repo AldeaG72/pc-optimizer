@@ -617,3 +617,53 @@ fn startup_switch_round_trips_on_the_runner() {
     real.reg.delete_value(Hive::CurrentUser, run, name).unwrap();
     summary("\n### Startup programs\n\nThrowaway Run entry turned off (Task Manager's switch) and back on exactly: OK");
 }
+
+/// Game mode on the runner's real Windows: the plan switches and an app (Notepad) is closed
+/// politely, then both come back when the game ends, and the state file is gone.
+#[test]
+#[ignore = "switches the runner's power plan and closes an app; runs only in GitHub Actions"]
+fn game_mode_round_trips_on_the_runner() {
+    use pco_core::gamemode::{self, GameModeSettings, GameModeSystem, HIGH_PERFORMANCE};
+    use pco_core::gamemode_win::WindowsGameMode;
+    require_ci();
+    let balanced = PLANS[0];
+    let mut power = WindowsPower::system();
+    let original = power.active_scheme().unwrap();
+    power.set_active_scheme(balanced).unwrap();
+
+    let notepad = std::process::Command::new("notepad.exe").spawn().unwrap();
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("gamemode");
+    let mut sys = WindowsGameMode::new(dir.join("gamemode-state.json"));
+    let settings = GameModeSettings {
+        enabled: true,
+        close_apps: vec!["notepad.exe".into()],
+        high_performance: true,
+        extra_games: Vec::new(),
+    };
+    let state = gamemode::enter("cs2.exe", &settings, &mut sys).unwrap();
+    assert_eq!(power.active_scheme().unwrap(), HIGH_PERFORMANCE);
+    assert_eq!(state.closed.len(), 1, "{state:?}");
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    let running = |sys: &WindowsGameMode| {
+        sys.processes()
+            .unwrap()
+            .iter()
+            .any(|p| p.name.eq_ignore_ascii_case("notepad.exe"))
+    };
+    assert!(!running(&sys), "notepad was not closed");
+    assert!(sys.pending_state().is_some(), "state saved while playing");
+
+    gamemode::leave(&state, &mut sys).unwrap();
+    assert_eq!(power.active_scheme().unwrap(), balanced);
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    assert!(running(&sys), "notepad was not started again");
+    assert!(sys.pending_state().is_none());
+
+    drop(notepad);
+    let _ = std::process::Command::new("taskkill")
+        .args(["/F", "/IM", "notepad.exe"])
+        .status();
+    power.set_active_scheme(&original).unwrap();
+    summary("\n### Game mode\n\nPlan switched and Notepad closed while \"playing\", both back afterwards: OK");
+}

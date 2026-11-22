@@ -26,6 +26,10 @@ pub struct Settings {
     pub show_advanced: bool,
     /// The monitor the user plays on, when there are several (device name).
     pub game_monitor: Option<String>,
+    /// Game mode (Stage 4): what happens while a game runs.
+    pub game_mode: pco_core::gamemode::GameModeSettings,
+    /// Start hidden in the tray when Windows starts (off by default).
+    pub start_with_windows: bool,
 }
 
 impl Default for Settings {
@@ -39,6 +43,8 @@ impl Default for Settings {
             daily_backup: false,
             show_advanced: false,
             game_monitor: None,
+            game_mode: pco_core::gamemode::GameModeSettings::default(),
+            start_with_windows: false,
         }
     }
 }
@@ -55,6 +61,12 @@ impl Settings {
         if self.game_monitor.as_ref().is_some_and(|m| m.len() > 200) {
             self.game_monitor = None;
         }
+        // Executable names only (letters, digits, spaces and ._-()+, ending in .exe).
+        let exe = |n: &String| pco_core::bench::target::is_exe_name(n);
+        self.game_mode.close_apps.retain(exe);
+        self.game_mode.extra_games.retain(exe);
+        self.game_mode.close_apps.truncate(50);
+        self.game_mode.extra_games.truncate(50);
         self
     }
 
@@ -109,6 +121,7 @@ mod tests {
             daily_backup: false,
             show_advanced: false,
             game_monitor: Some(r"\\.\DISPLAY1".into()),
+            ..Settings::default()
         };
         s.save(&path).unwrap();
         assert_eq!(Settings::load(&path), s);
