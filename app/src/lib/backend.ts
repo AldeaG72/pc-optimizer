@@ -86,7 +86,8 @@ export type Outcome =
   | { code: "failed"; error: string; rolled_back: boolean }
   | { code: "undone"; restored: number }
   | { code: "nothing_to_undo" }
-  | { code: "cleaned"; freed_bytes: number; deleted: number; skipped: number };
+  | { code: "cleaned"; freed_bytes: number; deleted: number; skipped: number }
+  | { code: "repaired" };
 
 export type BlockReason =
   | { code: "not_windows11"; build: number }
@@ -118,6 +119,7 @@ export type HelperRequest =
   | { op: "undo_all" }
   | { op: "clean"; ids: string[] }
   | { op: "startup"; changes: { id: string; enable: boolean }[] }
+  | { op: "repair"; action: RepairAction }
   | { op: "bench"; target: string; label: "before" | "after"; runs: number; duration: number; warmup: number };
 
 export interface Settings {
@@ -368,4 +370,22 @@ export async function exportLog(lang: Lang): Promise<string | null> {
 /** Today's backup of the changed registry values, if the setting is on (once a day). */
 export async function dailyBackup(): Promise<string | null> {
   return isTauri() ? call<string | null>("daily_backup") : null;
+}
+
+export type RepairAction = "network_reset" | "update_repair" | "system_scan";
+export type Panel = "sound" | "power" | "network";
+
+/** Size of the DirectX and driver shader caches (null: none found). Changes nothing. */
+export async function shaderCacheSize(): Promise<number | null> {
+  return isTauri() ? call<number | null>("shader_cache_size") : 734_003_200;
+}
+
+/** Empties the shader caches (after the interface asked); the bytes freed. */
+export async function cleanShaderCache(): Promise<number> {
+  return isTauri() ? call<number>("clean_shader_cache") : 734_003_200;
+}
+
+/** Opens a Windows control panel. */
+export async function openPanel(kind: Panel): Promise<void> {
+  if (isTauri()) await call<void>("open_panel", { kind });
 }

@@ -219,6 +219,10 @@ pub enum HelperRequest {
     Clean {
         ids: Vec<String>,
     },
+    /// One fixed troubleshooting action, by name.
+    Repair {
+        action: String,
+    },
     /// Startup programs on or off.
     Startup {
         changes: Vec<StartupChangeView>,
@@ -255,6 +259,10 @@ impl HelperRequest {
             HelperRequest::Undo { ids } => Request::Undo { ids: check(ids)? },
             HelperRequest::UndoAll => Request::UndoAll,
             HelperRequest::Clean { ids } => Request::Clean { ids: check(ids)? },
+            HelperRequest::Repair { action } => Request::Repair {
+                action: pco_core::repair::RepairAction::from_name(action)
+                    .ok_or_else(|| format!("unknown repair: {action}"))?,
+            },
             HelperRequest::Startup { changes } => {
                 let ids: Vec<String> = changes.iter().map(|c| c.id.clone()).collect();
                 check(&ids)?;

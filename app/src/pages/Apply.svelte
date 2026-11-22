@@ -44,6 +44,7 @@
       case "nothing_to_undo":
         return { state: "skipped", note: t("app.apply.nothing") };
       case "cleaned":
+      case "repaired":
         return { state: "ok", note: t("app.apply.applied") };
       case "not_applicable":
         return { state: "skipped", note: t("app.apply.skipped", { reason: naText(o.reason) }) };

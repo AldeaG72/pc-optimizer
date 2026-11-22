@@ -227,6 +227,15 @@ function sampleBenchEvents(request: Extract<HelperRequest, { op: "bench" }>): He
 
 export function sampleEvents(request: HelperRequest): HelperEvent[] {
   if (request.op === "bench") return sampleBenchEvents(request);
+  if (request.op === "repair") {
+    const id = `repair.${request.action}`;
+    return [
+      { event: "hello", version: 1 },
+      { event: "started", id },
+      { event: "result", id, outcome: { code: "repaired" } },
+      { event: "done", restart: request.action === "network_reset" ? "reboot" : "none" },
+    ];
+  }
   const ids: string[] =
     request.op === "undo_all" ? [] : request.op === "startup" ? request.changes.map((c) => c.id) : request.ids;
   const outcome = (): Outcome =>

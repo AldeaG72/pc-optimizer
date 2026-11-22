@@ -250,6 +250,8 @@ pub enum CleanupTarget {
     LauncherCaches,
     /// The Recycle Bin.
     RecycleBin,
+    /// DirectX and graphics driver shader caches (Troubleshooting; rebuilt while playing).
+    ShaderCache,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]

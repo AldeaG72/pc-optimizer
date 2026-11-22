@@ -24,6 +24,17 @@ const LAUNCHER_CACHES: &[&str] = &[
     r"EpicGamesLauncher\Saved\webcache_4430",
 ];
 
+/// Shader caches below `%LOCALAPPDATA%`: DirectX's own (Disk Cleanup's "DirectX Shader
+/// Cache") and the graphics drivers'. Games rebuild them, with some stutter at first.
+const SHADER_CACHES: &[&str] = &[
+    "D3DSCache",
+    r"NVIDIA\DXCache",
+    r"NVIDIA\GLCache",
+    r"AMD\DxCache",
+    r"AMD\DxcCache",
+    r"AMD\VkCache",
+];
+
 /// One side of the cleanup: the app (the user's own places) or the elevated helper
 /// (system folders). Each refuses the other's targets.
 #[derive(Debug, Clone, Copy)]
@@ -85,6 +96,23 @@ impl WindowsCleanup {
             // Other users can create files here: only the files directly inside.
             CleanupTarget::WindowsTemp => vec![(windows_dir()?.join("Temp"), temp_rules(false))],
             CleanupTarget::RecycleBin => Vec::new(),
+            CleanupTarget::ShaderCache => {
+                let base = local_app_data()?;
+                SHADER_CACHES
+                    .iter()
+                    .map(|p| base.join(p))
+                    .filter(|p| p.is_dir())
+                    .map(|p| {
+                        (
+                            p,
+                            Rules {
+                                recurse: true,
+                                min_age: None,
+                            },
+                        )
+                    })
+                    .collect()
+            }
         })
     }
 }

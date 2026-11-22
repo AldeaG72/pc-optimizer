@@ -105,8 +105,12 @@ Etapa are patru părți. Fiecare se termină cu CI verde și se unește separat 
   volum lipsesc. Copia zilnică: un `.reg` cu valorile schimbate de aplicație, în `backups\` lângă jurnal, ultimele 7
   zile; se importă cu dublu-clic. Antivirus: dacă helper-ul lipsește, e refuzat de Windows sau oprit înainte să se
   conecteze, aplicația spune clar că probabil antivirusul l-a blocat și ce poți face.)*
-- [ ] **3.14 Depanare** (în Setări, SPEC 4.8): resetare rețea, reparare Windows Update, scanare sistem (sfc + DISM),
+- [x] **3.14 Depanare** (în Setări, SPEC 4.8): resetare rețea, reparare Windows Update, scanare sistem (sfc + DISM),
   curățarea cache-ului de shadere, scurtături spre panourile Windows. Acțiuni fixe, rulate de helper.
+  *(2026-11-22: pașii sunt scriși în `pco_core::repair` (procedurile Microsoft); helper-ul primește doar numele
+  acțiunii. Repararea Windows Update oprește temporar serviciile și le pornește la loc chiar dacă un pas eșuează; setările
+  lor de pornire nu se schimbă. Fiecare acțiune cere confirmare; după resetarea rețelei se propune restartul. Cache-ul
+  de shadere (DirectX, NVIDIA, AMD) e în folderele utilizatorului, deci îl golește aplicația, fără admin.)*
 - [ ] **3.15 Installer** (Setup.exe, NSIS din Tauri) cu helper-ul și PresentMon (amprenta verificată la build).
   **Dezinstalarea anulează întâi toate modificările**, apoi șterge aplicația. Testat în CI: instalare → aplicare
   „Recomandate” → dezinstalare → registrul identic cu înainte.

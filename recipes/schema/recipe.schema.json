@@ -130,7 +130,7 @@
       "required": ["type", "target"],
       "properties": {
         "type": { "const": "cleanup" },
-        "target": { "enum": ["user-temp", "windows-temp", "launcher-caches", "recycle-bin"] }
+        "target": { "enum": ["user-temp", "windows-temp", "launcher-caches", "recycle-bin", "shader-cache"] }
       }
     }
   }

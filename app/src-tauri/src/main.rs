@@ -287,6 +287,50 @@ async fn startup_list() -> Result<Vec<startupview::StartupView>, String> {
     .await
 }
 
+/// Troubleshooting: size of the shader caches. Reads only.
+#[tauri::command]
+async fn shader_cache_size() -> Result<Option<u64>, String> {
+    use pco_core::cleanup::CleanupBackend;
+    blocking(|| {
+        pco_core::cleanup::windows::WindowsCleanup::user()
+            .measure(pco_core::recipe::CleanupTarget::ShaderCache)
+            .map_err(|e| e.to_string())
+    })
+    .await
+}
+
+/// Troubleshooting: empties the shader caches (the user's own folders, no admin), after the
+/// interface asked. Returns the bytes freed.
+#[tauri::command]
+async fn clean_shader_cache() -> Result<u64, String> {
+    use pco_core::cleanup::CleanupBackend;
+    blocking(|| {
+        pco_core::cleanup::windows::WindowsCleanup::user()
+            .clean(pco_core::recipe::CleanupTarget::ShaderCache)
+            .map(|r| r.freed_bytes)
+            .map_err(|e| e.to_string())
+    })
+    .await
+}
+
+/// Troubleshooting: opens a Windows control panel (fixed list). Changes nothing itself.
+#[tauri::command]
+fn open_panel(kind: String) -> Result<(), String> {
+    let applet = match kind.as_str() {
+        "sound" => "mmsys.cpl",
+        "power" => "powercfg.cpl",
+        "network" => "ncpa.cpl",
+        _ => return Err(format!("unknown panel: {kind}")),
+    };
+    let windows =
+        std::env::var_os("SystemRoot").map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from);
+    std::process::Command::new(windows.join(r"System32\control.exe"))
+        .arg(applet)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 /// The Home page: hardware and health findings in `lang` (about a second). Reads only.
 #[tauri::command]
 async fn home(lang: String) -> Result<home::HomeView, String> {
@@ -445,6 +489,9 @@ fn main() {
             clean_user,
             daily_backup,
             export_log,
+            shader_cache_size,
+            clean_shader_cache,
+            open_panel,
             startup_list,
             bench_history,
             run_helper,

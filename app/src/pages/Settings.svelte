@@ -1,4 +1,5 @@
 <script lang="ts">
+  import TroubleshootPanel from "../components/TroubleshootPanel.svelte";
   import { appVersion, benchForget, benchHistory, dailyBackup, exportLog, type Series } from "../lib/backend";
   import type { Lang } from "../lib/i18n";
   import { persist, prefs, t, ui, type Theme } from "../lib/state.svelte";
@@ -201,6 +202,8 @@
         {/if}
         <p class="muted small">{t("app.settings.history_note")}</p>
       </section>
+
+      <TroubleshootPanel />
 
       <section class="card" aria-labelledby="about">
         <h2 id="about">{t("app.settings.about")}</h2>

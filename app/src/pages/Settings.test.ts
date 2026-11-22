@@ -87,3 +87,24 @@ describe("Safety (3.13)", () => {
     expect(await screen.findByText("Salvat: pc-optimizer-log.txt")).toBeTruthy();
   });
 });
+
+describe("Troubleshooting (3.14)", () => {
+  it("asks before a repair, then reports it and offers the restart", async () => {
+    render(Settings);
+    const reset = (await screen.findByText("Resetare rețea")).closest(".row") as HTMLElement;
+    await fireEvent.click(reset.querySelector("button") as HTMLButtonElement);
+    expect(screen.getByText(/Resetez setările de rețea ale Windows\?/)).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Da, pornește" }));
+    expect(await screen.findByText("Gata, fără erori.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Restart acum" })).toBeTruthy();
+  });
+
+  it("shows the shader cache size and empties it after asking", async () => {
+    render(Settings);
+    expect(await screen.findByText(/700 MB în cache-urile DirectX/)).toBeTruthy();
+    const row = screen.getByText("Cache-ul de shadere").closest(".row") as HTMLElement;
+    await fireEvent.click(row.querySelector("button") as HTMLButtonElement);
+    await fireEvent.click(screen.getByRole("button", { name: "Da, șterge" }));
+    expect(await screen.findByText("Gata: am eliberat 700 MB.")).toBeTruthy();
+  });
+});
