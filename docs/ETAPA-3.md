@@ -123,10 +123,16 @@ Etapa are patru părți. Fiecare se termină cu CI verde și se unește separat 
   automat. Până atunci, installer nesemnat, cu explicația avertismentului „Windows protected your PC” în README.
   *(Pregătit: pașii în `docs/SEMNARE.md`, politica de semnare și explicația avertismentului în README. Rămâne
   cererea proprietarului.)*
-- [ ] **3.17 Prima beta**: pre-release pe GitHub Releases, README cu capturi, instrucțiuni pentru beta-testeri.
-  *(Pregătit: versiunea 0.3.0, fluxul `release.yml` (la un tag `v…`: construiește, testează și publică un
-  pre-release cu amprenta SHA-256), ghidul `docs/TESTARE-ETAPA-3.md`. Rămân: aprobarea proprietarului pentru
-  publicare și capturile în README.)*
+- [x] **3.17 Prima beta**: pre-release pe GitHub Releases, README cu capturi, instrucțiuni pentru beta-testeri.
+  *(2026-11-22: publicat cu acordul proprietarului: <https://github.com/AldeaG72/pc-optimizer/releases/tag/v0.3.0-beta.1>,
+  construit și testat de `release.yml` (instalare → aplicare → dezinstalare) înainte de publicare. Ghidul de testare:
+  `docs/TESTARE-ETAPA-3.md`. Capturile din README rămân pentru după primul test pe un PC real.)*
+
+**Închiderea etapei (2026-11-22):** proprietarul a decis să treacă peste testul din Windows Sandbox (pe laptop
+Sandbox e oprit și virtualizarea pare oprită din BIOS). Criteriul 1 rămâne deci neîndeplinit: aplicația instalată nu
+a fost încă folosită de un om pe un Windows 11 obișnuit; o fac beta-testerii. Criteriul 4 (nicio cerere pe internet)
+e respectat în cod (CSP-ul ferestrei permite doar comunicarea internă, nicio bibliotecă de rețea), dar nu are încă
+un test automat dedicat. Criteriile 2, 3, 5, 6: îndeplinite. Semnarea (3.16) așteaptă cererea proprietarului.
 
 ## Teste
 
