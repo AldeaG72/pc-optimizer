@@ -428,3 +428,8 @@ export async function onGameMode(handler: (s: GameModeStatus) => void): Promise<
   const { listen } = await import("@tauri-apps/api/event");
   return listen<GameModeStatus>("gamemode", (e) => handler(e.payload));
 }
+
+/** Opens a page of Windows Settings (fixed list). */
+export async function openSettingsPage(page: "notifications"): Promise<void> {
+  if (isTauri()) await call<void>("open_settings_page", { page });
+}

@@ -3,7 +3,7 @@
   // and "Start with Windows" (so it works without opening the app).
   import X from "@lucide/svelte/icons/x";
   import { onMount } from "svelte";
-  import { gamemodeSuggested } from "../lib/backend";
+  import { gamemodeSuggested, openSettingsPage } from "../lib/backend";
   import { persist, prefs, t } from "../lib/state.svelte";
 
   let suggested = $state<string[]>([]);
@@ -82,6 +82,14 @@
         <div class="muted small">{t("app.gamemode.power_hint")}</div>
       </div>
       <button class="switch" class:on={prefs.gameMode.highPerformance} role="switch" aria-checked={prefs.gameMode.highPerformance} aria-label={t("app.gamemode.power")} onclick={() => toggle("highPerformance")}><span></span></button>
+    </div>
+
+    <div class="row top">
+      <div>
+        <div class="strong">{t("app.gamemode.notifications")}</div>
+        <div class="muted small">{t("app.gamemode.notifications_hint")}</div>
+      </div>
+      <button class="btn small-btn" onclick={() => void openSettingsPage("notifications")}>{t("app.gamemode.notifications_open")}</button>
     </div>
 
     <div>

@@ -339,6 +339,22 @@ async fn clean_shader_cache() -> Result<u64, String> {
     .await
 }
 
+/// Opens a page of Windows Settings (fixed list). Changes nothing itself.
+#[tauri::command]
+fn open_settings_page(page: String) -> Result<(), String> {
+    let uri = match page.as_str() {
+        "notifications" => "ms-settings:notifications",
+        _ => return Err(format!("unknown settings page: {page}")),
+    };
+    let windows =
+        std::env::var_os("SystemRoot").map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from);
+    std::process::Command::new(windows.join("explorer.exe"))
+        .arg(uri)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 /// Troubleshooting: opens a Windows control panel (fixed list). Changes nothing itself.
 #[tauri::command]
 fn open_panel(kind: String) -> Result<(), String> {
@@ -597,6 +613,7 @@ fn main() {
             shader_cache_size,
             clean_shader_cache,
             open_panel,
+            open_settings_page,
             startup_list,
             bench_history,
             run_helper,
