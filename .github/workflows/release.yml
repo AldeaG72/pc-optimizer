@@ -1,0 +1,55 @@
+# Publishes a beta (Stage 3: 3.17). Runs only when the owner approves and a tag like
+# `v0.3.0-beta.1` is pushed: builds Setup.exe the same way the CI "installer" job tests it,
+# checks it with the same install → apply → uninstall test, then creates a GitHub
+# pre-release with the installer and its SHA-256.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  beta:
+    name: build, test and publish the beta
+    runs-on: windows-2025
+    env:
+      PCO_CI_REAL_TWEAKS: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: rustup toolchain install stable --profile minimal
+      - name: Build Setup.exe
+        id: build
+        shell: pwsh
+        run: |
+          $setup = (./scripts/build-installer.ps1) | Select-Object -Last 1
+          "setup=$setup" >> $env:GITHUB_OUTPUT
+      - name: Install, apply, uninstall (same test as CI)
+        shell: pwsh
+        run: ./scripts/installer-test.ps1 -Setup "${{ steps.build.outputs.setup }}"
+      - name: Create the pre-release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $setup = "${{ steps.build.outputs.setup }}"
+          $hash = (Get-FileHash -Algorithm SHA256 $setup).Hash.ToLowerInvariant()
+          $name = Split-Path $setup -Leaf
+          $notes = @"
+          **Beta — pentru testeri / for testers.** Windows 11 x64.
+
+          - Nesemnat încă: Windows poate arăta „Windows protected your PC” → More info › Run anyway.
+            Not code-signed yet: Windows may show "Windows protected your PC" → More info › Run anyway.
+          - Dezinstalarea anulează întâi toate modificările. Uninstalling first undoes every change.
+          - SHA-256 ``$name``: ``$hash``
+
+          Ghid de testare / test guide: docs/TESTARE-ETAPA-3.md
+          "@
+          gh release create "${{ github.ref_name }}" "$setup" --prerelease --title "PC Optimizer ${{ github.ref_name }} (beta)" --notes $notes

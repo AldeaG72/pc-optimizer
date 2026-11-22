@@ -678,7 +678,7 @@ dependencies = [
 
 [[package]]
 name = "pco-cli"
-version = "0.0.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -690,7 +690,7 @@ dependencies = [
 
 [[package]]
 name = "pco-core"
-version = "0.0.1"
+version = "0.3.0"
 dependencies = [
  "jsonschema",
  "rusqlite",
@@ -706,14 +706,14 @@ dependencies = [
 
 [[package]]
 name = "pco-frame-demo"
-version = "0.0.1"
+version = "0.3.0"
 dependencies = [
  "windows",
 ]
 
 [[package]]
 name = "pco-helper"
-version = "0.0.1"
+version = "0.3.0"
 dependencies = [
  "pco-core",
  "serde",

@@ -111,12 +111,22 @@ Etapa are patru părți. Fiecare se termină cu CI verde și se unește separat 
   acțiunii. Repararea Windows Update oprește temporar serviciile și le pornește la loc chiar dacă un pas eșuează; setările
   lor de pornire nu se schimbă. Fiecare acțiune cere confirmare; după resetarea rețelei se propune restartul. Cache-ul
   de shadere (DirectX, NVIDIA, AMD) e în folderele utilizatorului, deci îl golește aplicația, fără admin.)*
-- [ ] **3.15 Installer** (Setup.exe, NSIS din Tauri) cu helper-ul și PresentMon (amprenta verificată la build).
+- [x] **3.15 Installer** (Setup.exe, NSIS din Tauri) cu helper-ul și PresentMon (amprenta verificată la build).
   **Dezinstalarea anulează întâi toate modificările**, apoi șterge aplicația. Testat în CI: instalare → aplicare
   „Recomandate” → dezinstalare → registrul identic cu înainte.
+  *(2026-11-22: instalare în Program Files, pentru toți utilizatorii (decizia proprietarului). Dezinstalarea rulează
+  `pco undo --all`; dacă ceva nu se poate anula, întreabă (o dezinstalare silențioasă se oprește). La update nu
+  anulează nimic. Job-ul CI „installer” a trecut: 8 tweak-uri recomandate aplicate cu `pco` instalat, apoi
+  dezinstalare, fiecare setare exact ca înainte. Mesajele proprii ale instalatorului Tauri apar în engleză și în
+  varianta română (Tauri nu le are traduse).)*
 - [ ] **3.16 Semnarea**: tu faci cererea la SignPath Foundation (îți dau pașii); când e aprobată, CI semnează
   automat. Până atunci, installer nesemnat, cu explicația avertismentului „Windows protected your PC” în README.
+  *(Pregătit: pașii în `docs/SEMNARE.md`, politica de semnare și explicația avertismentului în README. Rămâne
+  cererea proprietarului.)*
 - [ ] **3.17 Prima beta**: pre-release pe GitHub Releases, README cu capturi, instrucțiuni pentru beta-testeri.
+  *(Pregătit: versiunea 0.3.0, fluxul `release.yml` (la un tag `v…`: construiește, testează și publică un
+  pre-release cu amprenta SHA-256), ghidul `docs/TESTARE-ETAPA-3.md`. Rămân: aprobarea proprietarului pentru
+  publicare și capturile în README.)*
 
 ## Teste
 

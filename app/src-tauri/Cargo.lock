@@ -2333,7 +2333,7 @@ dependencies = [
 
 [[package]]
 name = "pc-optimizer"
-version = "0.0.1"
+version = "0.3.0"
 dependencies = [
  "pco-core",
  "pco-helper",
@@ -2346,7 +2346,7 @@ dependencies = [
 
 [[package]]
 name = "pco-core"
-version = "0.0.1"
+version = "0.3.0"
 dependencies = [
  "rusqlite",
  "serde",
@@ -2361,7 +2361,7 @@ dependencies = [
 
 [[package]]
 name = "pco-helper"
-version = "0.0.1"
+version = "0.3.0"
 dependencies = [
  "pco-core",
  "serde",
